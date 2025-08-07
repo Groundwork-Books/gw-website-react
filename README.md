@@ -27,6 +27,14 @@ All changes should be developed on a feature branch (new branch specific to the 
 ## Setup Instructions
 
 ### Install Dependencies and Run Locally
+
+Get these vscode extensions
+
+austenc.tailwind-docs
+bradlc.vscode-tailwindcss
+stivo.tailwind-fold
+
+then
 ```
 
 npm install
@@ -37,38 +45,9 @@ npm run dev
 
 - Each page is in a folder of it's name aside from home.
 - tailwind color stuff is set in globals.css
+- if you get stuck look at the next.js and react documentation
 
-## For Backend:
-
-*This is old, needs to be updated. Links are useful tho*
-
-### Square API Credentials
-
-
-- Create a `.env` file in the `api/` directory:
-  ```env
-  SQUARE_ACCESS_TOKEN=your_square_access_token_here
-  SQUARE_LOCATION_ID=your_square_location_id_here
-  CHECKOUT_REDIRECT_URL=http://localhost:3000/thank-you
-  ```
-- Get your credentials from the [Square Developer Dashboard](https://developer.squareup.com/).
-
-### Firebase Auth Setup
-
-- Go to [Firebase Console](https://console.firebase.google.com/), create a project, enable Email/Password Auth.
-- Copy your config into `frontend/src/firebase.js`:
-  ```js
-  const firebaseConfig = {
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_AUTH_DOMAIN',
-    projectId: 'YOUR_PROJECT_ID',
-    appId: 'YOUR_APP_ID',
-  };
-  ```
-
-
-
-
+--- 
 ## Features
 - Email/password login/signup (Firebase Auth)
 - Book catalog from Square
@@ -86,4 +65,34 @@ npm run dev
 - No Firestore or Firebase Cloud Functions used 
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+---
+
+### For Backend:
+
+*This is old, needs to be updated. Links are useful tho*
+
+ Square API Credentials
+
+
+- Create a `.env` file in the `api/` directory:
+  ```env
+  SQUARE_ACCESS_TOKEN=your_square_access_token_here
+  SQUARE_LOCATION_ID=your_square_location_id_here
+  CHECKOUT_REDIRECT_URL=http://localhost:3000/thank-you
+  ```
+- Get your credentials from the [Square Developer Dashboard](https://developer.squareup.com/).
+
+Firebase Auth Setup
+
+- Go to [Firebase Console](https://console.firebase.google.com/), create a project, enable Email/Password Auth.
+- Copy your config into `frontend/src/firebase.js`:
+  ```js
+  const firebaseConfig = {
+    apiKey: 'YOUR_API_KEY',
+    authDomain: 'YOUR_AUTH_DOMAIN',
+    projectId: 'YOUR_PROJECT_ID',
+    appId: 'YOUR_APP_ID',
+  };
+  ```
 
