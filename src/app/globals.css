@@ -5,4 +5,10 @@
   --color-gw-green-2: #DCE6DD;
   --color-gw-white: #ffffff;
   --color-gw-black: #0C0C0C;
+  
+  /* Brand color aliases for easier use */
+  --color-brand-primary: #1D4825;
+  --color-brand-light: #DCE6DD;
+  --color-brand-white: #ffffff;
+  --color-brand-black: #0C0C0C;
 }
