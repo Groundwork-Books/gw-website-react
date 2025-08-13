@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import { CartProvider } from "@/lib/CartContext";
 
 //TODO: change to real fonts
 
@@ -31,7 +32,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          {children}
+          <CartProvider>
+            {children}
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>
