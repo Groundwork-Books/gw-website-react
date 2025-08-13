@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function AccountPage() {
   const { user, loading, logout } = useAuth();
@@ -38,7 +39,19 @@ export default function AccountPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold text-center mb-6">Account</h1>
+        <div className="flex items-center justify-between mb-6">
+          <Link 
+            href="/"
+            className="text-blue-600 hover:text-blue-700 flex items-center text-sm font-medium"
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+          </Link>
+          <h1 className="text-2xl font-bold">Account</h1>
+          <div className="w-20"></div> {/* Spacer for centering */}
+        </div>
         
         <div className="space-y-4">
           <div>
