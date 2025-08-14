@@ -1,10 +1,8 @@
-import { Book } from './types';
-
 const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
   ? 'https://connect.squareup.com' 
   : 'https://connect.squareupsandbox.com';
 
-export async function getBooks(): Promise<Book[]> {
+async function getBooks() {
   try {
     const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/list?types=ITEM`, {
       method: 'GET',
@@ -26,9 +24,9 @@ export async function getBooks(): Promise<Book[]> {
       return [];
     }
 
-    const books: Book[] = data.objects
-      .filter((obj: any) => obj.type === 'ITEM' && obj.item_data)
-      .map((item: any) => {
+    const books = data.objects
+      .filter((obj) => obj.type === 'ITEM' && obj.item_data)
+      .map((item) => {
         const itemData = item.item_data;
         const variation = itemData.variations?.[0];
         const price = variation?.item_variation_data?.price_money;
@@ -50,7 +48,7 @@ export async function getBooks(): Promise<Book[]> {
   }
 }
 
-export async function getBookById(id: string): Promise<Book | null> {
+async function getBookById(id) {
   try {
     const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/object/${id}`, {
       method: 'GET',
@@ -89,3 +87,8 @@ export async function getBookById(id: string): Promise<Book | null> {
     return null;
   }
 }
+
+module.exports = {
+  getBooks,
+  getBookById
+};

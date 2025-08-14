@@ -1,4 +1,68 @@
-# Bookstore Project
+# Groundwork Books Website
+
+**Two completely independent applications**
+
+## Project Structure
+
+```
+gw-website-react/
+├── frontend/          # Next.js React application (completely independent)
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── .env           # Frontend environment variables
+└── backend/           # Express.js API server (completely independent)
+    ├── src/
+    │   ├── routes/    # API route handlers
+    │   ├── lib/       # Utilities (Square integration)
+    │   └── server.js  # Express server setup
+    ├── package.json
+    └── .env           # Backend environment variables
+```
+
+## Quick Start
+
+### 1. Install Dependencies
+Each app has its own dependencies:
+```bash
+# Backend
+cd backend
+npm install
+
+# Frontend  
+cd frontend
+npm install
+```
+
+### 2. Environment Setup
+Configure environment variables:
+
+**Backend** (`backend/.env`):
+```env
+PORT=8080
+SQUARE_ACCESS_TOKEN=your_square_access_token_here
+SQUARE_ENVIRONMENT=sandbox
+```
+
+**Frontend** (`frontend/.env`):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+### 3. Development
+Run each app independently:
+
+**Backend:**
+```bash
+cd backend
+npm run dev  # Runs on port 8080
+```
+
+**Frontend:**
+```bash
+cd frontend  
+npm run dev  # Runs on port 3000 (or next available)
+```
 
 ## Key resources:
 
@@ -18,9 +82,10 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 
 ## Tech Stack
-- **Frontend:** React, Next.JS, Firebase Auth, Tailwind
+- **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS
+- **Backend:** Node.js, Express.js, Square API
 - **Cart:** React Context + localStorage
-- **Linter** eslint (Still needs to be configured)
+- **Architecture:** Separated frontend/backend with API communication
 
 ---
 
