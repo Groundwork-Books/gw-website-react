@@ -1,19 +1,21 @@
-import { NextResponse } from 'next/server';
-import { getBooks } from '@/lib/square';
+const express = require('express');
+const { getBooks } = require('../lib/square');
 
-export async function GET() {
+const router = express.Router();
+
+// GET /api/books
+router.get('/', async (req, res) => {
   try {
     // Debug environment variables
     console.log('SQUARE_ACCESS_TOKEN:', process.env.SQUARE_ACCESS_TOKEN ? 'SET' : 'NOT SET');
     console.log('SQUARE_ENVIRONMENT:', process.env.SQUARE_ENVIRONMENT);
     
     const books = await getBooks();
-    return NextResponse.json(books);
+    res.json(books);
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch books' },
-      { status: 500 }
-    );
+    res.status(500).json({ error: 'Failed to fetch books' });
   }
-}
+});
+
+module.exports = router;

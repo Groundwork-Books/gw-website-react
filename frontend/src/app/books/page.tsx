@@ -19,7 +19,8 @@ export default function BooksPage() {
 
   const fetchBooks = async () => {
     try {
-      const response = await fetch('/api/books');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/books`);
       if (!response.ok) {
         throw new Error('Failed to fetch books');
       }
