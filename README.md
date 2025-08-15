@@ -23,6 +23,9 @@ gw-website-react/
 ## Quick Start
 
 ### 1. Install Dependencies
+
+
+
 Each app has its own dependencies:
 ```bash
 # Backend
@@ -33,21 +36,20 @@ npm install
 cd frontend
 npm install
 ```
+Get these vscode extensions
 
+```
+austenc.tailwind-docs
+bradlc.vscode-tailwindcss
+stivo.tailwind-fold
+```
 ### 2. Environment Setup
-Configure environment variables:
+Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
 
 **Backend** (`backend/.env`):
-```env
-PORT=8080
-SQUARE_ACCESS_TOKEN=your_square_access_token_here
-SQUARE_ENVIRONMENT=sandbox
-```
 
 **Frontend** (`frontend/.env`):
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
+
 
 ### 3. Development
 Run each app independently:
@@ -87,24 +89,6 @@ All changes should be developed on a feature branch (new branch specific to the 
 - **Cart:** React Context + localStorage
 - **Architecture:** Separated frontend/backend with API communication
 
----
-
-## Setup Instructions
-
-### Install Dependencies and Run Locally
-
-Get these vscode extensions
-
-austenc.tailwind-docs
-bradlc.vscode-tailwindcss
-stivo.tailwind-fold
-
-then
-```
-
-npm install
-npm run dev
-```
 
 **Other useful information about the repo:**
 
@@ -112,7 +96,6 @@ npm run dev
 - tailwind color stuff is set in globals.css
 - if you get stuck look at the next.js and react documentation
 
---- 
 ## Features
 - Email/password login/signup (Firebase Auth)
 - Book catalog from Square
@@ -121,7 +104,7 @@ npm run dev
 - Thank you page
 - Protected routes (cart/checkout/account)
 
----
+
 
 
 ## Notes
@@ -131,33 +114,5 @@ npm run dev
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
----
 
-### For Backend:
-
-*This is old, needs to be updated. Links are useful tho*
-
- Square API Credentials
-
-
-- Create a `.env` file in the `api/` directory:
-  ```env
-  SQUARE_ACCESS_TOKEN=your_square_access_token_here
-  SQUARE_LOCATION_ID=your_square_location_id_here
-  CHECKOUT_REDIRECT_URL=http://localhost:3000/thank-you
-  ```
-- Get your credentials from the [Square Developer Dashboard](https://developer.squareup.com/).
-
-Firebase Auth Setup
-
-- Go to [Firebase Console](https://console.firebase.google.com/), create a project, enable Email/Password Auth.
-- Copy your config into `frontend/src/firebase.js`:
-  ```js
-  const firebaseConfig = {
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_AUTH_DOMAIN',
-    projectId: 'YOUR_PROJECT_ID',
-    appId: 'YOUR_APP_ID',
-  };
-  ```
 

@@ -3,6 +3,7 @@
 # dependencies
 frontend/node_modules
 backend/node_modules
+.node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -16,6 +17,7 @@ frontend/coverage
 backend/coverage
 
 # next.js (frontend)
+.next/
 frontend/.next/
 frontend/out/
 
