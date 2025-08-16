@@ -36,10 +36,10 @@ export default function Home() {
         {/* Hero content */}
         <div className="relative z-20 text-center text-white px-4">
           <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-8 max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-bold mb-8 leading-tight text-gw-black">
+            <h1 className="font-calluna text-4xl md:text-6xl font-black mb-8 leading-tight text-gw-green-1">
               A bookstore, organizing space, and community hub.
             </h1>
-            <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+            <button className="font-helvetica bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
               Check us out
             </button>
           </div>
@@ -67,8 +67,8 @@ export default function Home() {
                   <span className="text-gray-600">Add bookshelves.jpg</span>
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-gw-black">Great Books</h3>
-              <p className="text-gw-black/80 leading-relaxed">
+              <h3 className="font-calluna text-2xl font-bold text-gw-black">Great Books</h3>
+              <p className="font-helvetica text-gw-black/80 leading-relaxed">
                 Browse our collection of diverse book selections, local authors, zines, and unique finds. We curate books that inspire, educate, and challenge.
               </p>
               <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">

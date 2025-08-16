@@ -40,7 +40,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16 w-full">
           {/* Logo - positioned to the far left */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-xl font-bold">
+            <Link href="/" className="text-xl font-calluna font-black">
               Groundwork Books
             </Link>
           </div>
@@ -49,7 +49,7 @@ export default function Header() {
           <div className="flex items-center space-x-6">
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8">
-              <Link href="/" className="hover:text-gw-green-2 transition-colors">
+              <Link href="/" className="hover:text-gw-green-2 transition-colors font-helvetica">
                 HOME
               </Link>
               <Link href="/books" className="hover:text-gw-green-2 transition-colors">

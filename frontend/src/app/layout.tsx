@@ -1,19 +1,34 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
+
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
 
-//TODO: change to real fonts
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Load Calluna font
+const calluna = localFont({
+  src: [
+    {
+      path: "../../public/fonts/Calluna-Regular.otf",
+      weight: "400",
+      style: "normal",  
+    },
+    {
+      path: "../../public/fonts/Calluna-Black.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-calluna",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// Load Helvetica font
+const helvetica = localFont({
+  src: "../../public/fonts/Helvetica.ttf",
+  variable: "--font-helvetica",
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${calluna.variable} ${helvetica.variable} antialiased`}
       >
         <AuthProvider>
           <CartProvider>
