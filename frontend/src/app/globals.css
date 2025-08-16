@@ -12,3 +12,17 @@
   --color-brand-white: #ffffff;
   --color-brand-black: #0C0C0C;
 }
+
+/* Base font family settings */
+body {
+  font-family: var(--font-helvetica), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Utility classes for fonts */
+.font-calluna {
+  font-family: var(--font-calluna), serif;
+}
+
+.font-helvetica {
+  font-family: var(--font-helvetica), sans-serif;
+}
