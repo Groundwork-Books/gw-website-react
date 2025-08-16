@@ -46,10 +46,9 @@ stivo.tailwind-fold
 ### 2. Environment Setup
 Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
 
-**Backend** (`backend/.env`):
-
-**Frontend** (`frontend/.env`):
-
+**Backend** (`backend/.env`)
+**Frontend** (`frontend/.env`)
+**Next.js** (`./frontend/next-env.d.ts`)
 
 ### 3. Development
 Run each app independently:
