@@ -3,27 +3,35 @@
 import Header from '@/components/Header';
 import EventsCarousel from '@/components/EventsCarousel';
 import Link from 'next/link';
-import { InstagramEmbed } from 'react-social-media-embed';
 import { useEffect, useState } from 'react';
+import { getInstagramPosts, type InstagramPost } from '@/lib/api';
+import { InstagramEmbed } from 'react-social-media-embed';
 
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
-
-  // URLs with real Groundwork Books Instagram
-  const instagramPosts = [
-    'https://www.instagram.com/p/C3CYLGrLK8F/', //image 1
-    'https://www.instagram.com/p/DKaqRZjS--b/', //image 2
-    'https://www.instagram.com/p/DIIVR-ERxFf/', //image 3
-    'https://www.instagram.com/p/DGOZRmAShAR/', //image 4
-    'https://www.instagram.com/p/DGHx5T-OJe6/?img_index=1', //image 5
-    'https://www.instagram.com/p/DF_ggzDS0w0/', //image 6
-    'https://www.instagram.com/p/DF_CfnmSMWk/?img_index=1', //image 7
-    'https://www.instagram.com/p/DF6ewBOPtxP/', //image 8
-  ];
+  const [instagramPosts, setInstagramPosts] = useState<InstagramPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Fetch Instagram posts from Google Sheets
+    const fetchInstagramPosts = async () => {
+      try {
+        const posts = await getInstagramPosts();
+        setInstagramPosts(posts);
+      } catch (error) {
+        console.error('Error fetching Instagram posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInstagramPosts();
+
+    // No cleanup needed since we're using SafeInstagramEmbed
   }, []);
+
 
   return (
     <div className="min-h-screen bg-gw-white">
@@ -159,32 +167,52 @@ export default function Home() {
           </h2>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {isClient ? (
-              instagramPosts.map((url, index) => (
-                <div key={index} className="flex justify-center">
-                  <div className="w-full max-w-[328px]">
-                    <InstagramEmbed 
-                      url={url} 
-                      width="100%"
-                      captioned
-                      placeholderImageUrl="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='328' height='400' viewBox='0 0 328 400'%3E%3Crect width='328' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%236b7280'%3ELoading Instagram Post...%3C/text%3E%3C/svg%3E"
-                      placeholderSpinner={
-                        <div className="flex items-center justify-center h-96 bg-gray-100 rounded-lg">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1"></div>
-                        </div>
-                      }
-                      placeholderSpinnerDisabled={false}
-                      retryDelay={1000}
-                    />
+            {isClient && !loading ? (
+              // Show Instagram posts immediately as they load individually
+              instagramPosts.map((post, index) => (
+                <div 
+                  key={`instagram-${index}-${post.order}`} 
+                  className="flex justify-center opacity-0 animate-slide-up"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="w-full max-w-[328px] group cursor-pointer" suppressHydrationWarning={true}>
+                    <div className="transform transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg rounded-xl overflow-hidden">
+                      <InstagramEmbed 
+                        url={post.postUrl} 
+                        width="100%"
+                        captioned
+                        placeholderSpinnerDisabled={false}
+                      />
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              // Show loading placeholders during SSR
+              // Initial loading skeletons
               [...Array(8)].map((_, index) => (
-                <div key={index} className="flex justify-center">
-                  <div className="w-full max-w-[328px] h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1"></div>
+                <div key={`skeleton-${index}`} className="flex justify-center">
+                  <div className="w-full max-w-[328px] instagram-skeleton opacity-0 animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
+                    <div className="flex items-center p-3 space-x-3">
+                      <div className="w-8 h-8 rounded-full skeleton-shimmer"></div>
+                      <div className="flex-1 space-y-1">
+                        <div className="h-3 skeleton-shimmer rounded w-24"></div>
+                        <div className="h-2 skeleton-shimmer rounded w-16"></div>
+                      </div>
+                      <div className="w-4 h-4 skeleton-shimmer rounded"></div>
+                    </div>
+                    <div className="w-full aspect-square bg-gray-100 relative overflow-hidden">
+                      <div className="absolute inset-0 skeleton-shimmer"></div>
+                    </div>
+                    <div className="p-3 space-y-3">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-6 h-6 skeleton-shimmer rounded"></div>
+                        <div className="w-6 h-6 skeleton-shimmer rounded"></div>
+                        <div className="w-6 h-6 skeleton-shimmer rounded"></div>
+                      </div>
+                      <div className="h-3 skeleton-shimmer rounded w-20"></div>
+                      <div className="h-3 skeleton-shimmer rounded w-full"></div>
+                      <div className="h-3 skeleton-shimmer rounded w-3/4"></div>
+                    </div>
                   </div>
                 </div>
               ))
