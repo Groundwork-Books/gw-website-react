@@ -1,5 +1,9 @@
 # Groundwork Books Website
 
+**Google Form For Events and Instagram:**
+https://docs.google.com/spreadsheets/d/1S1Vw0w3CUGwjYVYNG60kUpBagEB7KXD4IfY6mLH6PEI/edit?usp=sharing
+
+
 **Two completely independent applications**
 
 ## Project Structure
