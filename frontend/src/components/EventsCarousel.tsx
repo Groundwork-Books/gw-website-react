@@ -1,45 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  description: string;
-  image: string;
-}
-
-const events: Event[] = [
-  {
-    id: '1',
-    title: 'Bonfire & Books! @La Jolla Cove',
-    date: 'Thursday, December 26th, 2024',
-    time: '7:30 PM',
-    description: 'Join us for an evening of books, fire, and community at La Jolla Cove! Bring a book to share.',
-    image: '/images/events/bonfire-books.jpg'
-  },
-  {
-    id: '2', 
-    title: 'Dollar Launch Club + Groundwork',
-    date: 'Thursday, December 30th, 2024',
-    time: '11:00 AM',
-    description: 'Coffee, books, and community organizing. Come learn about local activism over a warm drink.',
-    image: '/images/events/coffee-meeting.jpg'
-  },
-  {
-    id: '3',
-    title: 'Community Book Discussion',
-    date: 'Friday, January 3rd, 2025',
-    time: '6:00 PM', 
-    description: 'Monthly book club meeting. This month we\'re discussing local authors and social justice literature.',
-    image: '/images/events/book-discussion.jpg'
-  }
-];
+import { useState, useEffect } from 'react';
+import { getEvents, type Event } from '@/lib/api';
 
 export default function EventsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const eventsData = await getEvents();
+        setEvents(eventsData);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
 
   const nextSlide = () => {
     setCurrentIndex((prevIndex) => 
@@ -57,6 +39,36 @@ export default function EventsCarousel() {
     setCurrentIndex(index);
   };
 
+  if (loading) {
+    return (
+      <section className="bg-gw-green-2 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-center text-gw-black mb-12">
+            Upcoming Events
+          </h2>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1"></div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <section className="bg-gw-green-2 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-center text-gw-black mb-12">
+            Upcoming Events
+          </h2>
+          <div className="text-center text-gw-black/70">
+            <p>No events currently scheduled. Check back soon!</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-gw-green-2 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,15 +83,15 @@ export default function EventsCarousel() {
               className="flex transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
-              {events.map((event) => (
-                <div key={event.id} className="w-full flex-shrink-0">
+              {events.map((event, index) => (
+                <div key={event.eventName + index} className="w-full flex-shrink-0">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                     {/* Event image */}
                     <div className="order-2 lg:order-1">
                       <div className="aspect-w-16 aspect-h-9 bg-gray-300 rounded-lg overflow-hidden">
                         <img 
-                          src={event.image} 
-                          alt={event.title}
+                          src={event.imageUrl} 
+                          alt={event.eventName}
                           className="w-full h-64 object-cover rounded-lg"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
@@ -88,7 +100,7 @@ export default function EventsCarousel() {
                           }}
                         />
                         <div className="hidden w-full h-64 bg-gray-300 rounded-lg flex items-center justify-center">
-                          <span className="text-gray-500">Add {event.image.split('/').pop()}</span>
+                          <span className="text-gray-500">Add {event.imageUrl.split('/').pop()}</span>
                         </div>
                       </div>
                     </div>
@@ -96,24 +108,41 @@ export default function EventsCarousel() {
                     {/* Event details */}
                     <div className="order-1 lg:order-2 space-y-4">
                       <div className="bg-gw-white p-2 inline-block rounded">
-                        <span className="text-gw-green-1 font-bold text-sm">{event.date.split(',')[1]}</span>
+                        <span className="text-gw-green-1 font-bold text-sm">
+                          {new Date(event.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </span>
                       </div>
                       
                       <h3 className="text-2xl font-bold text-gw-black">
-                        {event.title}
+                        {event.eventName}
                       </h3>
                       
                       <p className="text-gw-black/70">
-                        <strong>{event.date} • {event.time}</strong>
+                        <strong>
+                          {new Date(event.date).toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })} • {event.location}
+                        </strong>
                       </p>
                       
                       <p className="text-gw-black/80">
                         {event.description}
                       </p>
                       
-                      <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+                      <a 
+                        href={event.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-block bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors"
+                      >
                         Learn More
-                      </button>
+                      </a>
                     </div>
                   </div>
                 </div>
