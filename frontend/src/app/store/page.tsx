@@ -32,7 +32,7 @@ export default function BooksPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
     const promises = categories.map(async (cat) => {
-      const response = await fetch(`${apiUrl}/api/books/category/${cat.id}`);
+      const response = await fetch(`${apiUrl}/api/books/categorycarousel/${cat.id}`);
       if (!response.ok) {
         throw new Error(`Response ${response.status}: ${response.statusText}`);
       }
@@ -45,6 +45,14 @@ export default function BooksPage() {
     const results: Record<string, Book[]> = {};
     for (const { id, books } of resultsArray) {
       results[id] = books;
+    }
+
+    // Test: Check if any books have valid imageUrl
+    const allBooks = Object.values(results).flat();
+    const booksWithImages = allBooks.filter(book => book.imageUrl);
+    console.log(`Frontend: Found ${booksWithImages.length} books with imageUrl out of ${allBooks.length} total books`);
+    if (booksWithImages.length > 0) {
+      console.log('Sample book with image:', booksWithImages[0].name, 'imageUrl:', booksWithImages[0].imageUrl);
     }
 
     setBooksByCategory(results);
@@ -112,7 +120,7 @@ export default function BooksPage() {
       {/* Carousels */}
       <div className="p-6">
         {categories.map((cat) => {
-          const books = booksByCategory[cat.id] || [];
+          const books = (booksByCategory[cat.id] || []).slice(0, 20);
           return (
             <div key={cat.id} className="mb-12">
               <h2 className="text-2xl font-bold mb-4">{cat.name}</h2>
