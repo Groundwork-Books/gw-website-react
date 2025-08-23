@@ -64,7 +64,7 @@ export default function Home() {
             <h1 className="font-calluna text-4xl md:text-6xl font-black mb-8 leading-tight text-gw-green-1">
               A bookstore, organizing space, and community hub.
             </h1>
-            <button className="font-helvetica bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+            <button onClick={() => window.location.href = "/about"}  className="font-helvetica bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
               Check us out
             </button>
           </div>
@@ -96,7 +96,7 @@ export default function Home() {
               <p className="font-helvetica text-gw-black/80 leading-relaxed">
                 Browse our collection of diverse book selections, local authors, zines, and unique finds. We curate books that inspire, educate, and challenge.
               </p>
-              <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+              <button onClick={() => window.location.href = "/store"} className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
                 Books
               </button>
             </div>
@@ -122,7 +122,7 @@ export default function Home() {
               <p className="text-gw-black/80 leading-relaxed">
                 Connect with local organizing efforts and community events. We host discussions, workshops, and events that bring people together for social change.
               </p>
-              <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+              <button onClick={() => window.location.href = "/community"} className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
                 Community
               </button>
             </div>
@@ -148,7 +148,7 @@ export default function Home() {
               <p className="text-gw-black/80 leading-relaxed">
                 Our space is available for community meetings, book clubs, and grassroots organizing. Come work, learn, and connect with others.
               </p>
-              <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+              <button onClick={() => window.location.href = "/about"}  className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
                 About
               </button>
             </div>
@@ -262,11 +262,11 @@ export default function Home() {
             {/* Right side - Text content */}
             <div className="order-1 lg:order-2 space-y-6">
               <h2 className="text-3xl font-bold text-gw-black">
-                Lorem ipsum dolor sit amet, contur adipiscing elit. Come check us out!
+                Come check us out!
               </h2>
               
               <p className="text-gw-black/80 leading-relaxed">
-                Rhoncus morbi et augue nec, in id ullamcorper ut sit. Condimentum. Visit us and see our book selection, enjoy our public community space, and meet our staff. We welcome everyone!
+                Visit us and see our book selection, enjoy our public community space, and meet our staff. We welcome everyone!
               </p>
               
               <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
