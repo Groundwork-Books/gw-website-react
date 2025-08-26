@@ -7,6 +7,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      keyframes: {
+        slideUp: {
+          "0%": { transform: "translateY(20px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+      },
+      
       fontFamily: {
         'calluna': ['var(--font-calluna)', 'serif'],
         'helvetica': ['var(--font-helvetica)', 'sans-serif'],
