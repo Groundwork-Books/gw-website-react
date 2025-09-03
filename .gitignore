@@ -3,6 +3,9 @@
 #avoiding committing from npm installing in ./
 package-lock.json
 
+#backend cache
+backend/src/lib/cache
+
 # dependencies
 frontend/node_modules
 backend/node_modules
