@@ -81,46 +81,48 @@ export default function AboutUs() {
        {/* Info Sections */}
         <section className="bg-gw-green-2 px-6 py-20 w-full z-30">
           <div className="flex flex-col gap-20 w-full max-w-[1568px] mx-auto">
-            <div className="grid grid-cols-[270px_minmax(0,700px)] gap-12 mx-auto">
-              <h2 className="font-calluna font-black text-[35px] leading-[110%] text-gw-green-1">
+            
+            <div className="grid grid-cols-1 md:grid-cols-[270px_minmax(0,700px)] gap-6 md:gap-12 mx-auto">
+              <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Leftist
               </h2>
-              <p className="font-helvetica font-normal text-[18px] leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-[16px] md:text-[18px] leading-[140%] text-gw-black">
                 We embrace radical left-wing values, fostering an inclusive and safe
                 environment while actively working to dismantle oppressive systems like
                 capitalism.
               </p>
             </div>
 
-            <div className="grid grid-cols-[270px_minmax(0,700px)] gap-12 mx-auto">
-              <h2 className="font-calluna font-black text-[35px] leading-[110%] text-gw-green-1">
+            <div className="grid grid-cols-1 md:grid-cols-[270px_minmax(0,700px)] gap-6 md:gap-12 mx-auto">
+              <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Non-hierarchical
               </h2>
-              <p className="font-helvetica font-normal text-[18px] leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-[16px] md:text-[18px] leading-[140%] text-gw-black">
                 Groundwork operates without bosses or managers, ensuring equal footing
                 for all workers, who choose how they want to contribute.
               </p>
             </div>
 
-            <div className="grid grid-cols-[270px_minmax(0,700px)] gap-12 mx-auto">
-              <h2 className="font-calluna font-black text-[35px] leading-[110%] text-gw-green-1">
+            <div className="grid grid-cols-1 md:grid-cols-[270px_minmax(0,700px)] gap-6 md:gap-12 mx-auto">
+              <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Non-profit
               </h2>
-              <p className="font-helvetica font-normal text-[18px] leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-[16px] md:text-[18px] leading-[140%] text-gw-black">
                 All our profits are reinvested into community-building projects and
                 replenishing our stock, with no funds taken for personal gain.
               </p>
             </div>
 
-            <div className="grid grid-cols-[270px_minmax(0,700px)] gap-12 mx-auto">
-              <h2 className="font-calluna font-black text-[35px] leading-[110%] text-gw-green-1">
+            <div className="grid grid-cols-1 md:grid-cols-[270px_minmax(0,700px)] gap-6 md:gap-12 mx-auto">
+              <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Cooperative
               </h2>
-              <p className="font-helvetica font-normal text-[18px] leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-[16px] md:text-[18px] leading-[140%] text-gw-black">
                 Groundwork Books is collectively owned and operated by all workers, with
                 all decisions made democratically to guide the store’s direction.
               </p>
             </div>
+
           </div>
         </section>
 
