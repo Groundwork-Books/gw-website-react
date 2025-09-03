@@ -1,6 +1,108 @@
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch'); // if not already imported
+
 const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
   ? 'https://connect.squareup.com' 
   : 'https://connect.squareupsandbox.com';
+
+const CACHE_DIR = path.resolve(__dirname, 'cache');
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR);
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 500; // initial retry delay in ms
+const BATCH_SIZE = 5; // number of images to fetch at once
+const CACHE_EXPIRATION_DAYS = 5; // how long cache is valid in days
+
+
+// ---------------- Cache Utilities ----------------
+
+function getCacheFile(categoryId) {
+  return path.join(CACHE_DIR, `${categoryId}.json`);
+}
+
+function readCache(categoryId, maxAgeDays = CACHE_EXPIRATION_DAYS) {
+  const file = getCacheFile(categoryId);
+  if (!fs.existsSync(file)) return null;
+
+  const stats = fs.statSync(file);
+  const ageDays = (Date.now() - stats.mtimeMs) / 1000 / 60 / 60 / 24;
+  if (ageDays > maxAgeDays) return null;
+
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(categoryId, data) {
+  const file = getCacheFile(categoryId);
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+// ---------------- Fetch Utilities ----------------
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`Rate limited. Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Square API error: ${response.status} - ${errorText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (attempt === retries) {
+        console.error('Max retries reached:', error);
+        return null;
+      }
+      const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
+      console.warn(`Fetch failed, retrying in ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+  return null;
+}
+
+// ---------------- Image Caching ----------------
+
+const IMAGE_CACHE_FILE = path.join(CACHE_DIR, 'images.json');
+let imageCache = fs.existsSync(IMAGE_CACHE_FILE)
+  ? JSON.parse(fs.readFileSync(IMAGE_CACHE_FILE))
+  : {};
+
+async function getImageCached(id) {
+  if (!id) return null;
+  if (imageCache[id]) return imageCache[id];
+
+  const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/object/${id}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Square-Version': '2025-01-09',
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const url = data?.object?.image_data?.url || null;
+  if (url) {
+    imageCache[id] = url;
+    fs.writeFileSync(IMAGE_CACHE_FILE, JSON.stringify(imageCache, null, 2));
+  }
+
+  return url;
+}
 
 async function getBooks() {
   try {
@@ -32,7 +134,7 @@ async function getBooks() {
           // fetch the actual image URL
           let imageUrl = null;
           if (itemData.image_ids?.[0]) {
-            imageUrl = await getImage(itemData.image_ids[0]);
+            imageUrl = await getImageCached(itemData.image_ids[0]);
           }
 
           return {
@@ -53,59 +155,7 @@ async function getBooks() {
   }
 }
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500; // initial delay for retries
-
-async function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.status === 429) {
-        // Rate limit hit
-        const delay = RETRY_DELAY_MS * Math.pow(2, attempt); // exponential backoff
-        console.warn(`Rate limited. Retrying in ${delay}ms...`);
-        await sleep(delay);
-        continue;
-      }
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Square API error: ${response.status} - ${errorText}`);
-      }
-      return await response.json();
-    } catch (error) {
-      if (attempt === retries) {
-        console.error('Max retries reached:', error);
-        return null;
-      }
-      const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
-      console.warn(`Fetch failed, retrying in ${delay}ms...`);
-      await sleep(delay);
-    }
-  }
-  return null;
-}
-
-async function getImage(id) {
-  const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/object/${id}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-      'Square-Version': '2025-01-09',
-      'Content-Type': 'application/json',
-    },
-  });
-
-  return data?.object?.image_data?.url || null;
-}
-
-/**
- * Fetch books by category with batched image loading.
- */
-async function getBooksByCategory(categoryId) {
+async function fetchCategoryBooksFromSquare(categoryId) {
   const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/search-catalog-items`, {
     method: 'POST',
     headers: {
@@ -118,7 +168,6 @@ async function getBooksByCategory(categoryId) {
 
   if (!data?.items) return [];
 
-  // Create base book objects
   const books = data.items.map((item) => {
     const itemData = item.item_data;
     const variation = itemData.variations?.[0];
@@ -131,17 +180,16 @@ async function getBooksByCategory(categoryId) {
       price: price ? Number(price.amount) / 100 : 0,
       currency: price?.currency || 'USD',
       imageId: itemData.image_ids?.[0] || null,
-      imageUrl: null, // to be filled in batches
+      imageUrl: null,
     };
   });
 
-  // Load images in batches to avoid rate limits
-  const BATCH_SIZE = 5;
+  // Batch fetch images to avoid rate limits
   for (let i = 0; i < books.length; i += BATCH_SIZE) {
     const batch = books.slice(i, i + BATCH_SIZE);
     await Promise.all(batch.map(async (book) => {
       if (book.imageId) {
-        book.imageUrl = await getImage(book.imageId);
+        book.imageUrl = await getImageCached(book.imageId);
       }
     }));
   }
@@ -149,9 +197,23 @@ async function getBooksByCategory(categoryId) {
   return books;
 }
 
-/**
- * Pick up to `limit` books, prioritizing those with images.
- */
+async function getBooksByCategory(categoryId, useCache = true) {
+  if (useCache) {
+    const cached = readCache(categoryId);
+    if (cached) {
+      console.log(`Loaded category ${categoryId} from cache`);
+      return cached;
+    }
+  }
+
+  const books = await fetchCategoryBooksFromSquare(categoryId);
+  writeCache(categoryId, books);
+
+  return books;
+}
+
+// ---------------- Carousel Builder ----------------
+
 function buildCarouselBooks(books, limit = 20) {
   const withImages = books.filter((b) => b.imageUrl);
   const withoutImages = books.filter((b) => !b.imageUrl);
@@ -161,9 +223,6 @@ function buildCarouselBooks(books, limit = 20) {
   return [...withImages, ...withoutImages.slice(0, limit - withImages.length)];
 }
 
-/**
- * Main: fetch category books and return the carousel set.
- */
 async function getCarouselBooksByCategory(categoryId, limit = 20) {
   const allBooks = await getBooksByCategory(categoryId);
   return buildCarouselBooks(allBooks, limit);
