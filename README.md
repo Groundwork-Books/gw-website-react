@@ -69,6 +69,17 @@ cd frontend
 npm run dev  # Runs on port 3000 (or next available)
 ```
 
+### 4. Before commiting
+Run this to test that the frontend can be built   
+*(because it gets autodeployed on vercel)*
+
+```bash
+cd frontend
+npm run build 
+npm start    
+```
+
+Make sure to add your email to your commits so that Vercel doesn't freak out. It takes 20 seconds just do what [this](https://docs.github.com/en/account-and-profile/how-tos/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address#setting-your-commit-email-address-in-git) says
 ## Key resources:
 
 - The figma (frontend mockup) is available [here](https://www.figma.com/design/Al34xSygT7JdXAEx5f4dCN/Groundworks-Website-Redesign---Adelina?node-id=1242-591&t=MRPcgBKGXxqGE7XO-1)
