@@ -310,7 +310,7 @@ export default function Home() {
             <div className="space-y-4">
               <nav className="flex flex-wrap gap-6 text-sm">
                 <Link href="/" className="hover:text-gw-green-2 transition-colors">HOME</Link>
-                <Link href="/books" className="hover:text-gw-green-2 transition-colors">STORE</Link>
+                <Link href="/store" className="hover:text-gw-green-2 transition-colors">STORE</Link>
                 <Link href="/archive" className="hover:text-gw-green-2 transition-colors">ARCHIVE</Link>
                 <Link href="/community" className="hover:text-gw-green-2 transition-colors">COMMUNITY</Link>
                 <Link href="/about" className="hover:text-gw-green-2 transition-colors">ABOUT</Link>

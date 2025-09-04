@@ -12,7 +12,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^156.0.0",
-    "square": "^43.0.1"
+    "square": "^43.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

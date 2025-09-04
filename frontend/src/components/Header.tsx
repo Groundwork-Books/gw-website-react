@@ -90,34 +90,57 @@ export default function Header() {
                       <div className="px-4 py-2 border-b border-gray-200">
                         <p className="text-sm text-gw-black font-medium">{user.email}</p>
                       </div>
-                      <Link
-                        href="/account"
-                        className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
-                        onClick={() => setIsAccountDropdownOpen(false)}
-                      >
-                        Account Settings
-                      </Link>
-                      <Link
-                        href="/orders"
-                        className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
-                        onClick={() => setIsAccountDropdownOpen(false)}
-                      >
-                        My Orders
-                      </Link>
-                      <Link
-                        href="/wishlist"
-                        className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
-                        onClick={() => setIsAccountDropdownOpen(false)}
-                      >
-                        Wishlist
-                      </Link>
-                      <hr className="my-1 border-gray-200" />
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        Sign Out
-                      </button>
+                      {user.email === 'groundworkbookscollective@gmail.com' ? (
+                        // Admin-only menu
+                        <>
+                          <Link
+                            href="/admin"
+                            className="block px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 transition-colors"
+                            onClick={() => setIsAccountDropdownOpen(false)}
+                          >
+                            🔐 Admin Dashboard
+                          </Link>
+                          <hr className="my-1 border-gray-200" />
+                          <button
+                            onClick={handleLogout}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            Sign Out
+                          </button>
+                        </>
+                      ) : (
+                        // Regular user menu
+                        <>
+                          <Link
+                            href="/account"
+                            className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
+                            onClick={() => setIsAccountDropdownOpen(false)}
+                          >
+                            Account Settings
+                          </Link>
+                          <Link
+                            href="/orders"
+                            className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
+                            onClick={() => setIsAccountDropdownOpen(false)}
+                          >
+                            My Orders
+                          </Link>
+                          <Link
+                            href="/wishlist"
+                            className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
+                            onClick={() => setIsAccountDropdownOpen(false)}
+                          >
+                            Wishlist
+                          </Link>
+                          <hr className="my-1 border-gray-200" />
+                          <button
+                            onClick={handleLogout}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            Sign Out
+                          </button>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -220,7 +243,7 @@ export default function Header() {
               <Link href="/" className="block py-2 hover:text-gw-green-2 transition-colors">
                 HOME
               </Link>
-              <Link href="/books" className="block py-2 hover:text-gw-green-2 transition-colors">
+              <Link href="/store" className="block py-2 hover:text-gw-green-2 transition-colors">
                 STORE
               </Link>
               <Link href="/archive" className="block py-2 hover:text-gw-green-2 transition-colors">
