@@ -5,7 +5,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
+<<<<<<< Updated upstream
 import Image from 'next/image';
+=======
+
+>>>>>>> Stashed changes
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim());
@@ -50,10 +54,6 @@ export default function BooksPage() {
     // Test: Check if any books have valid imageUrl
     const allBooks = Object.values(results).flat();
     const booksWithImages = allBooks.filter(book => book.imageUrl);
-    console.log(`Frontend: Found ${booksWithImages.length} books with imageUrl out of ${allBooks.length} total books`);
-    if (booksWithImages.length > 0) {
-      console.log('Sample book with image:', booksWithImages[0].name, 'imageUrl:', booksWithImages[0].imageUrl);
-    }
 
     setBooksByCategory(results);
   } catch (err) {
@@ -65,10 +65,8 @@ export default function BooksPage() {
 
   const handleAddToCart = (book: Book) => {
     if (!user) {
-      const shouldLogin = confirm('Please log in to add items to your cart. Would you like to go to the login page?');
-      if (shouldLogin) {
-        window.location.href = '/login';
-      }
+      // More elegant redirect - no confirm dialog needed
+      window.location.href = `/login?redirect=${encodeURIComponent('/store')}&message=${encodeURIComponent('Please log in to add items to your cart')}`;
       return;
     }
     addToCart(book);
@@ -174,9 +172,13 @@ export default function BooksPage() {
 
                         <button
                           onClick={() => handleAddToCart(book)}
-                          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                          className={`mt-2 w-full px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                            user 
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                          }`}
                         >
-                          Add
+                          {user ? 'Add to Cart' : 'Login to Purchase'}
                         </button>
                       </div>
                     </div>

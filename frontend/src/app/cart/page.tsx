@@ -45,7 +45,7 @@ export default function CartPage() {
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
             <Link 
-              href="/books"
+              href="/store"
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Continue Shopping
@@ -60,7 +60,7 @@ export default function CartPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
               <p className="text-gray-500 mb-6">Add some books to get started!</p>
               <Link 
-                href="/books"
+                href="/store"
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
               >
                 Browse Books
@@ -154,12 +154,12 @@ export default function CartPage() {
                   >
                     Clear Cart
                   </button>
-                  <button
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition duration-200"
-                    onClick={() => alert('Checkout functionality coming soon!')}
+                  <Link
+                    href="/checkout"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition duration-200 text-center"
                   >
                     Proceed to Checkout
-                  </button>
+                  </Link>
                 </div>
               </div>
             </>

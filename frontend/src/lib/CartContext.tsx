@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { Book, CartItem, Cart } from './types';
 import { useAuth } from './AuthContext';
 
@@ -83,59 +83,88 @@ export const useCart = () => {
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, dispatch] = useReducer(cartReducer, { items: [], total: 0 });
+  const [isInitialized, setIsInitialized] = useState(false);
   const { user } = useAuth();
 
-  // Save cart to localStorage whenever it changes
+  // Initialize cart from localStorage on component mount
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(`cart_${user.uid}`, JSON.stringify(cart));
-    }
-  }, [cart, user]);
-
-  // Load cart from localStorage when user logs in
-  useEffect(() => {
-    if (user) {
-      const savedCart = localStorage.getItem(`cart_${user.uid}`);
-      if (savedCart) {
-        try {
-          const parsedCart = JSON.parse(savedCart);
-          dispatch({ type: 'LOAD_CART', payload: parsedCart });
-        } catch (error) {
-          console.error('Error loading cart from localStorage:', error);
+    const initializeCart = () => {
+      try {
+        if (user) {
+          // Only load cart for authenticated users
+          const savedCart = localStorage.getItem(`cart_${user.uid}`);
+          
+          if (savedCart) {
+            const parsedCart = JSON.parse(savedCart);
+            dispatch({ type: 'LOAD_CART', payload: parsedCart });
+          } else {
+          }
+        } else {
+          // Clear cart for unauthenticated users
+          dispatch({ type: 'CLEAR_CART' });
         }
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+      } finally {
+        setIsInitialized(true);
       }
-    } else {
-      // Clear cart when user logs out
-      dispatch({ type: 'CLEAR_CART' });
-    }
+    };
+
+    initializeCart();
   }, [user]);
 
-  const addToCart = (book: Book, quantity = 1) => {
+  // Save cart to localStorage whenever it changes (but only for authenticated users)
+  useEffect(() => {
+    if (!isInitialized || !user) return; // Only save for authenticated users
+    
+    try {
+      const cartKey = `cart_${user.uid}`;
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
+  }, [cart, user, isInitialized]);
+
+  // Clean up any old guest cart data when user logs in
+  useEffect(() => {
+    if (!isInitialized || !user) return;
+
+    // Clean up any old guest cart data
+    const guestCart = localStorage.getItem('cart_guest');
+    if (guestCart) {
+      localStorage.removeItem('cart_guest');
+    }
+  }, [user, isInitialized]);
+
+  const addToCart = useCallback((book: Book, quantity = 1) => {
     dispatch({ type: 'ADD_ITEM', payload: { book, quantity } });
-  };
+  }, []);
 
-  const removeFromCart = (bookId: string) => {
+  const removeFromCart = useCallback((bookId: string) => {
     dispatch({ type: 'REMOVE_ITEM', payload: { bookId } });
-  };
+  }, []);
 
-  const updateQuantity = (bookId: string, quantity: number) => {
+  const updateQuantity = useCallback((bookId: string, quantity: number) => {
     dispatch({ type: 'UPDATE_QUANTITY', payload: { bookId, quantity } });
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     dispatch({ type: 'CLEAR_CART' });
-  };
+  }, []);
 
-  const itemCount = cart.items.reduce((count, item) => count + item.quantity, 0);
+  const itemCount = useMemo(() => 
+    cart.items.reduce((count, item) => count + item.quantity, 0), 
+    [cart.items]
+  );
 
-  const value: CartContextType = {
+  const value: CartContextType = useMemo(() => ({
     cart,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
     itemCount,
-  };
+  }), [cart, addToCart, removeFromCart, updateQuantity, clearCart, itemCount]);
 
   return (
     <CartContext.Provider value={value}>
