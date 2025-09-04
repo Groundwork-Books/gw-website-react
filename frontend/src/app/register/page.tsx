@@ -34,15 +34,11 @@ export default function RegisterPage() {
       await createUserWithEmailAndPassword(auth, email, password);
       router.push('/account');
     } catch (err: unknown) {
-<<<<<<< Updated upstream
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('An unknown error occurred');
       }
-=======
-      setError(err instanceof Error ? err.message : 'An error occurred');
->>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }

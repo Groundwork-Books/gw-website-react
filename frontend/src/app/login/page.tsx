@@ -30,15 +30,6 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-<<<<<<< Updated upstream
-      router.push('/account');
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred');
-      }
-=======
       
       // Check if this is the admin user and redirect accordingly
       if (email.toLowerCase() === 'groundworkbookscollective@gmail.com') {
@@ -50,7 +41,6 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred');
->>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }
@@ -129,11 +119,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <Link href="/register" className="text-indigo-600 hover:text-indigo-500">
-<<<<<<< Updated upstream
               {"Don't have an account? Sign up"}
-=======
-              Don&apos;t have an account? Sign up
->>>>>>> Stashed changes
             </Link>
           </div>
         </form>

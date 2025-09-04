@@ -5,11 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
-<<<<<<< Updated upstream
 import Image from 'next/image';
-=======
-
->>>>>>> Stashed changes
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim());
