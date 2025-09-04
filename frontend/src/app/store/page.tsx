@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim());
@@ -101,17 +102,19 @@ export default function BooksPage() {
         {/* Background collage */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
         <div className="absolute inset-0">
-          <img 
+          <Image 
             src="/images/hero/book-collage.jpg" 
             alt="Book collage background"
-            className="w-full h-full object-cover opacity-60"
+            fill={true}
+            sizes="100vw"
+            className="object-cover opacity-60"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
               target.nextElementSibling?.classList.remove('hidden');
             }}
           />
-          <div className="hidden w-full h-full bg-gray-600 flex items-center justify-center">
+          <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
             <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
           </div>
         </div>
@@ -135,11 +138,15 @@ export default function BooksPage() {
                     >
                       <div className="h-40 bg-gray-200 flex items-center justify-center">
                         {book.imageUrl ? (
-                          <img
-                            src={book.imageUrl}
-                            alt={book.name}
-                            className="w-full h-full object-cover"
-                          />
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={book.imageUrl}
+                              alt={book.name}
+                              fill={true}
+                              sizes="200px"
+                              className="object-cover"
+                            />
+                          </div>
                         ) : (
                           <div className="text-gray-400 text-center">
                             <svg

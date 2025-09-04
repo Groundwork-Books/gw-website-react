@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getEvents, type Event } from '@/lib/api';
+import Image from 'next/image';
 
 export default function EventsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -89,9 +90,11 @@ export default function EventsCarousel() {
                     {/* Event image */}
                     <div className="order-2 lg:order-1">
                       <div className="aspect-w-16 aspect-h-9 bg-gray-300 rounded-lg overflow-hidden">
-                        <img 
+                        <Image 
                           src={event.imageUrl} 
                           alt={event.eventName}
+                          width={800}
+                          height={400}
                           className="w-full h-64 object-cover rounded-lg"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
@@ -99,7 +102,7 @@ export default function EventsCarousel() {
                             target.nextElementSibling?.classList.remove('hidden');
                           }}
                         />
-                        <div className="hidden w-full h-64 bg-gray-300 rounded-lg flex items-center justify-center">
+                        <div className="hidden w-full h-64 bg-gray-300 rounded-lg items-center justify-center">
                           <span className="text-gray-500">Add {event.imageUrl.split('/').pop()}</span>
                         </div>
                       </div>

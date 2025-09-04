@@ -3,6 +3,7 @@
 import Header from '@/components/Header';
 import EventsCarousel from '@/components/EventsCarousel';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { getInstagramPosts, type InstagramPost } from '@/lib/api';
 import { InstagramEmbed } from 'react-social-media-embed';
@@ -43,17 +44,21 @@ export default function Home() {
         {/* Background collage */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
         <div className="absolute inset-0">
-          <img 
-            src="/images/hero/book-collage.jpg" 
-            alt="Book collage background"
-            className="w-full h-full object-cover opacity-60"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              target.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden w-full h-full bg-gray-600 flex items-center justify-center">
+          <div className="relative w-full h-full">
+            <Image 
+              src="/images/hero/book-collage.jpg" 
+              alt="Book collage background"
+              fill={true}
+              sizes="100vw"
+              className="object-cover opacity-60"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                target.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          </div>
+          <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
             <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
           </div>
         </div>
@@ -78,17 +83,19 @@ export default function Home() {
             {/* Great Books */}
             <div className="text-center space-y-4">
               <div className="h-64 relative overflow-hidden rounded-lg">
-                <img 
+                <Image 
                   src="/images/community/bookshelves.jpg" 
                   alt="Bookstore interior with shelves"
-                  className="w-full h-full object-cover"
+                  fill={true}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
                     target.nextElementSibling?.classList.remove('hidden');
                   }}
                 />
-                <div className="hidden h-full bg-gray-300 flex items-center justify-center rounded-lg">
+                <div className="hidden h-full bg-gray-300 items-center justify-center rounded-lg">
                   <span className="text-gray-600">Add bookshelves.jpg</span>
                 </div>
               </div>
@@ -104,17 +111,19 @@ export default function Home() {
             {/* Local Activism */}
             <div className="text-center space-y-4">
               <div className="h-64 relative overflow-hidden rounded-lg">
-                <img 
+                <Image 
                   src="/images/community/mural.jpg" 
                   alt="Community mural and artwork"
-                  className="w-full h-full object-cover"
+                  fill={true}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
                     target.nextElementSibling?.classList.remove('hidden');
                   }}
                 />
-                <div className="hidden h-full bg-gray-400 flex items-center justify-center rounded-lg">
+                <div className="hidden h-full bg-gray-400 items-center justify-center rounded-lg">
                   <span className="text-gray-600">Add mural.jpg</span>
                 </div>
               </div>
@@ -130,17 +139,19 @@ export default function Home() {
             {/* Community Space */}
             <div className="text-center space-y-4">
               <div className="h-64 relative overflow-hidden rounded-lg">
-                <img 
+                <Image 
                   src="/images/community/community-gathering.jpg" 
                   alt="Community gathering in the space"
-                  className="w-full h-full object-cover"
+                  fill={true}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
                     target.nextElementSibling?.classList.remove('hidden');
                   }}
                 />
-                <div className="hidden h-full bg-gray-300 flex items-center justify-center rounded-lg">
+                <div className="hidden h-full bg-gray-300 items-center justify-center rounded-lg">
                   <span className="text-gray-600">Add community-gathering.jpg</span>
                 </div>
               </div>
@@ -243,17 +254,21 @@ export default function Home() {
             {/* Left side - Image */}
             <div className="order-2 lg:order-1">
               <div className="aspect-w-4 aspect-h-3 bg-gray-400 rounded-lg overflow-hidden">
-                <img 
-                  src="/images/location/storefront.jpg" 
-                  alt="Groundwork Books storefront location"
-                  className="w-full h-80 object-cover rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.nextElementSibling?.classList.remove('hidden');
-                  }}
-                />
-                <div className="hidden w-full h-80 bg-gray-400 rounded-lg flex items-center justify-center">
+                <div className="relative w-full h-80">
+                  <Image 
+                    src="/images/location/storefront.jpg" 
+                    alt="Groundwork Books storefront location"
+                    fill={true}
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover rounded-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                </div>
+                <div className="hidden w-full h-80 bg-gray-400 rounded-lg items-center justify-center">
                   <span className="text-gray-600">Add storefront.jpg to /public/images/location/</span>
                 </div>
               </div>

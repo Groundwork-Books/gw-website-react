@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function CartPage() {

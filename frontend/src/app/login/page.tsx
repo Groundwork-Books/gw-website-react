@@ -21,8 +21,12 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push('/account');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
     } finally {
       setLoading(false);
     }
@@ -87,7 +91,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <Link href="/register" className="text-indigo-600 hover:text-indigo-500">
-              Don't have an account? Sign up
+              {"Don't have an account? Sign up"}
             </Link>
           </div>
         </form>
