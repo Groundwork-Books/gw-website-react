@@ -72,13 +72,22 @@ function OrderConfirmationContent() {
     }
   }, [orderId]);
 
-  // Clear cart and auto-prepare order when order confirmation loads (successful payment)
+  // Clear cart immediately when order confirmation loads (successful payment)
   useEffect(() => {
     if (orderId && user) {
       console.log('🛒 Clearing cart after successful payment...');
       clearCart();
       
-      // Order should already be PREPARED from backend, but refresh to show current status
+      // Also clear from localStorage immediately to prevent reload issues
+      try {
+        const cartKey = `cart_${user.uid}`;
+        localStorage.removeItem(cartKey);
+        console.log('🗑️ Removed cart from localStorage');
+      } catch (error) {
+        console.error('Error removing cart from localStorage:', error);
+      }
+      
+      // Order will be in 'Preparing Order' state until admin manually updates it
       setTimeout(() => {
         console.log('🔄 Refreshing order details to show current status...');
         fetchOrderDetails();
@@ -87,7 +96,7 @@ function OrderConfirmationContent() {
       // Initial fetch
       fetchOrderDetails();
     }
-  }, [orderId, user, clearCart, fetchOrderDetails]);
+  }, [orderId, user]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -193,7 +202,7 @@ function OrderConfirmationContent() {
                     }`}>
                                           {orderStatus === 'COMPLETED' ? 'Picked Up' :
                      orderStatus === 'PREPARED' ? 'Ready for Pickup' :
-                     'Pending'}
+                     'Preparing Order'}
                     </span>
                     {statusUpdating && orderStatus === 'PROPOSED' && (
                       <div className="flex items-center gap-1 text-sm text-blue-600">

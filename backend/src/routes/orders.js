@@ -322,13 +322,6 @@ router.post('/:orderId/payment', async (req, res) => {
 
     if (paymentResponse.ok && paymentData.payment) {
 
-      // After successful payment, update order status to PREPARED (ready for pickup)
-      try {
-        await updateOrderToReadyForPickup(orderId);
-      } catch (updateError) {
-        // Order update failed, but payment succeeded - this is okay
-        console.error('Failed to update order status after payment:', updateError);
-      }
 
       res.json({
         success: true,
@@ -461,12 +454,6 @@ router.post('/webhook/payment-updated', async (req, res) => {
       
       if (payment.status === 'COMPLETED') {
         
-        // Update order fulfillment status to PREPARED (ready for pickup)
-        try {
-          await updateOrderToReadyForPickup(orderId);
-        } catch (updateError) {
-          console.error('Failed to update order status:', updateError);
-        }
       }
     }
     
@@ -479,124 +466,7 @@ router.post('/webhook/payment-updated', async (req, res) => {
   }
 });
 
-// Helper function to update order status to PREPARED after payment
-async function updateOrderToReadyForPickup(orderId) {
-  try {
-    // First get the current order
-    const orderResponse = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
-      method: 'GET',
-      headers: getSquareHeaders(false)
-    });
 
-    const orderData = await orderResponse.json();
-    
-    if (!orderResponse.ok || !orderData.order) {
-      throw new Error('Order not found');
-    }
-
-    const currentOrder = orderData.order;
-    const currentFulfillment = currentOrder.fulfillments[0];
-    
-    // Update the fulfillment status to PREPARED (ready for pickup)
-    const updateResponse = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
-      method: 'PUT',
-      headers: getSquareHeaders(),
-      body: JSON.stringify({
-        order: {
-          version: currentOrder.version,
-          fulfillments: [{
-            uid: currentFulfillment.uid,
-            type: currentFulfillment.type,
-            state: 'PREPARED', // Ready for pickup
-            pickup_details: {
-              ...currentFulfillment.pickup_details,
-              note: 'Your order is ready for pickup! Please bring a valid ID.'
-            }
-          }]
-        }
-      })
-    });
-
-    const updateData = await updateResponse.json();
-    
-    if (updateResponse.ok && updateData.order) {
-      console.log(`✅ Order ${orderId} status updated to PREPARED (ready for pickup)`);
-      return updateData.order;
-    } else {
-      console.log('❌ Failed to update order status:', updateData);
-      throw new Error('Failed to update order status');
-    }
-
-  } catch (error) {
-    console.error('Error updating order to ready for pickup:', error);
-    throw error;
-  }
-}
-
-// Auto-update endpoint to immediately set PROPOSED orders to PREPARED (since we only sell in-stock items)
-router.post('/auto-prepare-orders', async (req, res) => {
-  try {
-    // Search for PROPOSED orders (should be very recent)
-    const searchResponse = await fetch('https://connect.squareupsandbox.com/v2/orders/search', {
-      method: 'POST',
-      headers: getSquareHeaders(),
-      body: JSON.stringify({
-        location_ids: [process.env.SQUARE_LOCATION_ID],
-        query: {
-          filter: {
-            date_time_filter: {
-              created_at: {
-                start_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() // Last 5 minutes
-              }
-            }
-          },
-          sort: {
-            sort_field: 'CREATED_AT',
-            sort_order: 'DESC'
-          }
-        },
-        limit: 20
-      })
-    });
-
-    const searchData = await searchResponse.json();
-    
-    if (searchResponse.ok) {
-      // Find PROPOSED orders (should be ready immediately since we only sell in-stock items)
-      const proposedOrders = (searchData.orders || []).filter(order => {
-        const isProposed = order.fulfillments?.[0]?.state === 'PROPOSED';
-        return isProposed;
-      });
-
-      const updatePromises = proposedOrders.map(order => 
-        updateOrderToReadyForPickup(order.id).catch(() => null)
-      );
-      
-      const results = await Promise.all(updatePromises);
-      const successCount = results.filter(result => result !== null).length;
-
-      res.json({
-        success: true,
-        message: `Auto-updated ${successCount} out of ${proposedOrders.length} orders to PREPARED status`,
-        updated_count: successCount,
-        total_found: proposedOrders.length
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        error: 'Failed to search for orders',
-        details: searchData.errors || searchData
-      });
-    }
-  } catch (error) {
-    console.error('Error auto-updating orders:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to auto-update orders', 
-      details: error.message 
-    });
-  }
-});
 
 // Manual endpoint to update paid orders to PREPARED status
 router.post('/admin/update-paid-orders-status', async (req, res) => {
@@ -912,36 +782,5 @@ router.put('/:orderId/fulfillment', async (req, res) => {
   }
 });
 
-// Automatic background task to update PROPOSED orders to PREPARED
-// Since we only sell in-stock items, orders should be ready immediately
-const autoUpdateInterval = setInterval(async () => {
-  try {
-    const response = await fetch('http://localhost:8080/api/orders/auto-prepare-orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.updated_count > 0) {
-        console.log(`🔄 Auto-updated ${data.updated_count} orders to PREPARED status`);
-      }
-    }
-  } catch (error) {
-    // Silently handle errors to avoid spam
-    console.error('Auto-update task error:', error.message);
-  }
-}, 30000); // Run every 30 seconds
-
-// Clean up interval on process exit
-process.on('SIGTERM', () => {
-  clearInterval(autoUpdateInterval);
-});
-
-process.on('SIGINT', () => {
-  clearInterval(autoUpdateInterval);
-});
 
 module.exports = router;
