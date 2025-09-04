@@ -87,8 +87,8 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 
 ## Tech Stack
-- **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS
-- **Backend:** Node.js, Express.js, Square API
+- **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS - **Hosted via Vercel**
+- **Backend:** Node.js, Express.js, Square API - **Hosted via Render**
 - **Cart:** React Context + localStorage
 - **Architecture:** Separated frontend/backend with API communication
 
