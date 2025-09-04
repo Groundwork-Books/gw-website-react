@@ -46,11 +46,7 @@ export default function AdminPage() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/admin/recent-orders?limit=20`, {
-        headers: {
-          'x-admin-password': 'admin123' // This should match your backend admin password
-        }
-      });
+      const response = await fetch(`${apiUrl}/api/orders/admin/recent-orders?limit=20`);
       const data = await response.json();
       
       if (data.success) {
@@ -90,11 +86,7 @@ export default function AdminPage() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/admin/search-by-email/${encodeURIComponent(searchEmail)}`, {
-        headers: {
-          'x-admin-password': 'admin123'
-        }
-      });
+      const response = await fetch(`${apiUrl}/api/orders/admin/search-by-email/${encodeURIComponent(searchEmail)}`);
       const data = await response.json();
       
       if (data.success) {
@@ -116,8 +108,7 @@ export default function AdminPage() {
       const response = await fetch(`${apiUrl}/api/orders/admin/${orderId}/pickup-status`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-password': 'admin123'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status })
       });

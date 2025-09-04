@@ -1,6 +1,5 @@
 const express = require('express');
 const { SquareClient, SquareEnvironment } = require('square');
-const adminAuth = require('../middleware/adminAuth');
 const router = express.Router();
 
 
@@ -600,7 +599,7 @@ router.post('/auto-prepare-orders', async (req, res) => {
 });
 
 // Manual endpoint to update paid orders to PREPARED status
-router.post('/admin/update-paid-orders-status', adminAuth, async (req, res) => {
+router.post('/admin/update-paid-orders-status', async (req, res) => {
   try {
     
     // Get recent paid orders
@@ -662,7 +661,7 @@ router.post('/admin/update-paid-orders-status', adminAuth, async (req, res) => {
 // ADMIN ENDPOINTS FOR STAFF MANAGEMENT
 
 // Search orders by customer email (for staff)
-router.get('/admin/search-by-email/:email', adminAuth, async (req, res) => {
+router.get('/admin/search-by-email/:email', async (req, res) => {
   try {
     const { email } = req.params;
     const { limit = 20 } = req.query;
@@ -722,7 +721,7 @@ router.get('/admin/search-by-email/:email', adminAuth, async (req, res) => {
 });
 
 // Get all recent orders for staff overview
-router.get('/admin/recent-orders', adminAuth, async (req, res) => {
+router.get('/admin/recent-orders', async (req, res) => {
   try {
     const { limit = 50, status, show_unpaid = 'false' } = req.query; // status: 'PREPARED', 'COMPLETED', etc.
     
@@ -789,7 +788,7 @@ router.get('/admin/recent-orders', adminAuth, async (req, res) => {
 });
 
 // Update order pickup status (mark as picked up)
-router.put('/admin/:orderId/pickup-status', adminAuth, async (req, res) => {
+router.put('/admin/:orderId/pickup-status', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, notes } = req.body; // status: 'COMPLETED' (picked up) or 'PREPARED' (ready)
