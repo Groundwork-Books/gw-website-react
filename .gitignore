@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-#avoiding committing from npm installing in ./
-package-lock.json
+#avoiding linter's node modules
+node_modules/
 
 #backend cache
 backend/src/lib/cache
