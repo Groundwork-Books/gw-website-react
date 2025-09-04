@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,15 +30,6 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-<<<<<<< Updated upstream
-      router.push('/account');
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unknown error occurred');
-      }
-=======
       
       // Check if this is the admin user and redirect accordingly
       if (email.toLowerCase() === 'groundworkbookscollective@gmail.com') {
@@ -50,7 +41,6 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred');
->>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }
@@ -129,15 +119,23 @@ export default function LoginPage() {
 
           <div className="text-center">
             <Link href="/register" className="text-indigo-600 hover:text-indigo-500">
-<<<<<<< Updated upstream
               {"Don't have an account? Sign up"}
-=======
-              Don&apos;t have an account? Sign up
->>>>>>> Stashed changes
             </Link>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
