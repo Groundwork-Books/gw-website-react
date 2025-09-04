@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getEvents, type Event } from '@/lib/api';
+import Image from 'next/image';
 
 export default function EventsGrid() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -58,17 +59,19 @@ export default function EventsGrid() {
               <div key={event.eventName + index} className="text-center space-y-4">
                 {/* Event image */}
                 <div className="h-64 relative overflow-hidden rounded-lg">
-                  <img 
+                  <Image 
                     src={event.imageUrl} 
                     alt={event.eventName}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
                       target.nextElementSibling?.classList.remove('hidden');
                     }}
                   />
-                  <div className="hidden h-full bg-gray-300 flex items-center justify-center rounded-lg">
+                  <div className="hidden h-full bg-gray-300 items-center justify-center rounded-lg absolute inset-0">
                     <span className="text-gray-600">Add {event.imageUrl.split('/').pop()}</span>
                   </div>
                 </div>

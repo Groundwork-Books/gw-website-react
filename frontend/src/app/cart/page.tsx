@@ -74,9 +74,11 @@ export default function CartPage() {
                     <div className="flex items-center space-x-4">
                       <div className="w-16 h-20 bg-gray-200 rounded flex items-center justify-center">
                         {item.book.imageUrl ? (
-                          <img 
+                          <Image 
                             src={item.book.imageUrl} 
                             alt={item.book.name}
+                            width={64}
+                            height={80}
                             className="w-full h-full object-cover rounded"
                           />
                         ) : (

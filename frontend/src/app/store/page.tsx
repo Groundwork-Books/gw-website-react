@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
-import Link from 'next/link';
 import Image from 'next/image';
 
 // Read categories from env

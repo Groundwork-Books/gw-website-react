@@ -96,7 +96,7 @@ export default function CommunityPage() {
             <div className="order-2 lg:order-1 space-y-6">
               <h2 className="text-3xl font-calluna font-bold text-gw-green-1">Host a meeting at Groundworks!</h2>
               <p className="text-gw-black/80 leading-relaxed font-helvetica">
-                If you'd like to host an event with us, email us at groundworkbookscollective@gmail.com.
+                If you{`'`}d like to host an event with us, email us at groundworkbookscollective@gmail.com.
               </p>
               <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
                 View Interest Form
@@ -161,7 +161,7 @@ export default function CommunityPage() {
             <div className="order-2 lg:order-1 space-y-6">
               <h2 className="text-3xl font-calluna font-bold text-gw-green-1">Community Restock Requests</h2>
               <p className="text-gw-black/80 leading-relaxed font-helvetica">
-                Use this form to request books for when we restock! We'll do our best to get them in at a reduced price for you, so long as they're offered by our supplier.
+                Use this form to request books for when we restock! We{`'`}ll do our best to get them in at a reduced price for you, so long as they{`'`}re offered by our supplier.
               </p>
               <button className="bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
                 View Request Form
