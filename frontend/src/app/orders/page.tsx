@@ -113,7 +113,7 @@ export default function OrdersPage() {
         return 'Ready for Pickup';
       case 'PROPOSED':
       case 'PENDING':
-        return 'Pending';
+        return 'Preparing Order';
       default:
         return `Processing (${state})`;
     }

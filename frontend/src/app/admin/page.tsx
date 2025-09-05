@@ -172,7 +172,7 @@ export default function AdminPage() {
         return 'Ready for Pickup';
       case 'PROPOSED':
       case 'PENDING':
-        return 'Pending';
+        return 'Preparing Order';
       default:
         return `Processing (${state})`;
     }
