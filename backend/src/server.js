@@ -14,6 +14,7 @@ app.use('/api/books', require('./routes/books'));
 app.use('/api/instagram', require('./routes/instagram'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/orders', require('./routes/orders'));
+app.use('/api/search', require('./routes/search'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

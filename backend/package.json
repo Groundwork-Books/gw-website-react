@@ -8,6 +8,7 @@
     "build": "echo 'No build step required for basic Node.js backend'"
   },
   "dependencies": {
+    "@pinecone-database/pinecone": "^6.1.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

@@ -1,6 +1,7 @@
 'use client';
 
 import Header from '@/components/Header';
+import SearchComponent from '@/components/SearchComponent';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
@@ -109,6 +110,32 @@ export default function BooksPage() {
           />
           <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
             <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Search Section */}
+      <section className="bg-gw-green-2 py-6">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="flex gap-4 items-center">
+            {/* Search Input */}
+            <div className="flex-1">
+              <SearchComponent 
+                placeholder="Search..."
+                className="w-full"
+              />
+            </div>
+            
+            {/* Genre Dropdown (placeholder for now) */}
+            <div className="relative">
+              <select 
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gw-green-1 focus:border-transparent bg-white text-gray-900 min-w-[120px]"
+                defaultValue=""
+              >
+                <option value="">Genre</option>
+                {/* Genre options will be added later */}
+              </select>
+            </div>
           </div>
         </div>
       </section>

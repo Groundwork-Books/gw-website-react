@@ -1,9 +1,15 @@
 const express = require('express');
-const { getBooks, getBooksByCategory, getCarouselBooksByCategory } = require('../lib/square');
+const { 
+  getBooks, 
+  getBookById,
+  getBooksByCategory, 
+  getCarouselBooksByCategory, 
+  getImage 
+} = require('../lib/square');
 
 const router = express.Router();
 
-// GET /api/books
+// GET /api/books - Get all books
 router.get('/', async (req, res) => {
   try {
     // Debug environment variables
@@ -18,6 +24,22 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/books/:id - Get a single book by ID
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const book = await getBookById(id);
+    if (!book) {
+      return res.status(404).json({ error: 'Book not found' });
+    }
+    res.json(book);
+  } catch (error) {
+    console.error('API Error:', error);
+    res.status(500).json({ error: 'Failed to fetch book' });
+  }
+});
+
+// GET /api/books/category/:categoryId - Get books by category
 router.get('/category/:categoryId', async (req, res) => {
   const { categoryId } = req.params;
   try {
@@ -32,6 +54,7 @@ router.get('/category/:categoryId', async (req, res) => {
   }
 });
 
+// GET /api/books/categorycarousel/:categoryId - Get carousel books by category
 router.get('/categorycarousel/:categoryId', async (req, res) => {
   const { categoryId } = req.params;
   try {
@@ -46,6 +69,7 @@ router.get('/categorycarousel/:categoryId', async (req, res) => {
   }
 });
 
+// GET /api/books/image/:id - Get image for a book
 router.get('/image/:id', async (req, res) => {
   const { id } = req.params;
   try {

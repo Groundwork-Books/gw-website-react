@@ -104,9 +104,10 @@ async function getImageCached(id) {
   return url;
 }
 
-async function getBooks() {
+async function getBookById(bookId, useCache = true) {
+
   try {
-    const response = await fetch(`${SQUARE_BASE_URL}/v2/catalog/list?types=ITEM`, {
+    const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/object/${bookId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
@@ -115,43 +116,36 @@ async function getBooks() {
       },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Square API error: ${response.status} - ${errorText}`);
+    if (!data?.object || data.object.type !== 'ITEM') {
+      console.log(`Book ${bookId} not found or not an ITEM`);
+      return null;
     }
 
-    const data = await response.json();
-    if (!data.objects) return [];
+    const item = data.object;
+    const itemData = item.item_data;
+    const variation = itemData.variations?.[0];
+    const price = variation?.item_variation_data?.price_money;
 
-    const books = await Promise.all(
-      data.objects
-        .filter((obj) => obj.type === 'ITEM' && obj.item_data)
-        .map(async (item) => {
-          const itemData = item.item_data;
-          const variation = itemData.variations?.[0];
-          const price = variation?.item_variation_data?.price_money;
+    // Fetch image URL
+    let imageUrl = null;
+    if (itemData.image_ids?.[0]) {
+      imageUrl = await getImageCached(itemData.image_ids[0]);
+    }
 
-          // fetch the actual image URL
-          let imageUrl = null;
-          if (itemData.image_ids?.[0]) {
-            imageUrl = await getImageCached(itemData.image_ids[0]);
-          }
+    const book = {
+      id: item.id,
+      name: itemData.name || 'Untitled Book',
+      description: itemData.description || 'No description available',
+      price: price ? Number(price.amount) / 100 : 0,
+      currency: price?.currency || 'USD',
+      imageUrl,
+    };
 
-          return {
-            id: item.id,
-            name: itemData.name || 'Untitled Book',
-            description: itemData.description,
-            price: price ? Number(price.amount) / 100 : 0,
-            currency: price?.currency || 'USD',
-            imageUrl,
-          };
-        })
-    );
+    return book;
 
-    return books;
   } catch (error) {
-    console.error('Error fetching books from Square:', error);
-    throw new Error('Failed to fetch books');
+    console.error(`Error fetching book ${bookId} from Square:`, error);
+    throw new Error(`Failed to fetch book ${bookId}`);
   }
 }
 
@@ -229,7 +223,7 @@ async function getCarouselBooksByCategory(categoryId, limit = 20) {
 }
 
 module.exports = {
-  getBooks,
+  getBookById,
   getBooksByCategory,
   getCarouselBooksByCategory,
 };
