@@ -10,6 +10,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@tailwindcss/line-clamp": "^0.4.4",
     "firebase": "^12.1.0",
     "googleapis": "^156.0.0",
     "next": "^15.4.6",
