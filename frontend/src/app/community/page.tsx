@@ -13,7 +13,7 @@ export default function CommunityPage() {
       <Header />
 
       {/* Hero Section (full-bleed) */}
-      <section className="relative h-[302px] flex items-center justify-center isolate">
+      <section className="relative h-[200px] flex items-center justify-center isolate">
         {/* Background image */}
         <div className="rounded-lg overflow-hidden">
           <Image
@@ -25,13 +25,15 @@ export default function CommunityPage() {
             sizes="100vw"
           />
         </div>
-        {/* Overlay for readability */}
-        <div className="absolute inset-0 bg-gw-green-1/40" />
+        {/* Optional overlay for readability */}
+        <div className="absolute inset-0 " />
 
         {/* Content */}
         <div className="relative z-10 w-full px-4">
-          <div className="mx-auto max-w-3xl bg-white/80 py-10 px-6 md:px-12 rounded-xl text-center">
-            <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">Community</h1>
+          <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+            <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+              Community
+            </h1>
           </div>
         </div>
       </section>

@@ -25,6 +25,7 @@ export default function BooksPage() {
   const [booksPerPage] = useState(12); // Number of books per page for tile view
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
 
@@ -167,37 +168,41 @@ export default function BooksPage() {
       {/* Header */}
       <Header />
 
-      {/* Hero Section */}
-      <section className="relative h-72 bg-gw-black flex items-center justify-center">
-        {/* Background collage */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
-        <div className="absolute inset-0">
-          <Image 
-            src="/images/hero/book-collage.jpg" 
-            alt="Book collage background"
-            fill={true}
-            sizes="100vw"
-            className="object-cover opacity-60"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              target.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
-            <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
+      {/* Hero Section (full-bleed) */}
+        <section className="relative h-[200px] flex items-center justify-center isolate">
+          {/* Background image */}
+          <div className="rounded-lg overflow-hidden">
+            <Image
+              src="/images/hero/book-collage.jpg"
+              alt="Book collage background"
+              fill
+              className="object-cover"
+              priority
+              sizes="100vw"
+            />
           </div>
-        </div>
-      </section>
+          {/* Optional overlay for readability */}
+          <div className="absolute inset-0 " />
+  
+          {/* Content */}
+          <div className="relative z-10 w-full px-4">
+            <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+              <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+                Bookstore Selection
+              </h1>
+            </div>
+          </div>
+        </section>
+      
 
       {/* Search Section */}
-      <section className="bg-gw-green-2 py-6">
+      <section className=" py-6">
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex gap-4 items-center">
             {/* Search Input */}
             <div className="flex-1">
               <SearchComponent 
-                placeholder="Search..."
+                placeholder="Search books...         (powered by some cool AI)"
                 className="w-full"
               />
             </div>
@@ -205,11 +210,11 @@ export default function BooksPage() {
             {/* Genre Dropdown */}
             <div className="relative">
               <select 
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gw-green-1 focus:border-transparent bg-white text-gray-900 min-w-[120px]"
+                className="px-4 py-3 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 w-36"
                 value={selectedGenre}
                 onChange={handleGenreChange}
               >
-                <option value="">All Genres</option>
+                <option value="">Genre</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -227,7 +232,7 @@ export default function BooksPage() {
           // Tile grid view for selected genre
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold">
+              <h2 className="text-3xl text-gw-green-1 font-calluna font-bold">
                 {categories.find(cat => cat.id === selectedGenre)?.name || 'Selected Genre'}
               </h2>
               <p className="text-gray-600">
@@ -244,9 +249,11 @@ export default function BooksPage() {
                   {paginatedBooks.map((book) => (
                     <div
                       key={book.id}
-                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                      onClick={() => setSelectedBook(book)}
                     >
-                      <div className="h-48 bg-gray-200 flex items-center justify-center">
+                      <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
                         {book.imageUrl ? (
                           <div className="relative w-full h-full">
                             <Image
@@ -276,23 +283,12 @@ export default function BooksPage() {
                       </div>
 
                       <div className="p-3">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
+                        <h3 className="text-sm font-light text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
                           {book.name}
                         </h3>
                         <span className="text-sm text-green-600 font-bold block mb-2">
                           ${Number(book.price).toFixed(2)}
                         </span>
-
-                        <button
-                          onClick={() => handleAddToCart(book)}
-                          className={`w-full px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                            user 
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                          }`}
-                        >
-                          {user ? 'Add to Cart' : 'Login to Purchase'}
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -363,7 +359,7 @@ export default function BooksPage() {
             const books = (booksByCategory[cat.id] || []).slice(0, 20);
             return (
               <div key={cat.id} className="mb-12">
-                <h2 className="text-2xl font-bold mb-4">{cat.name}</h2>
+                <h2 className="text-2xl text-gw-green-1 font-calluna font-bold mb-4">{cat.name}</h2>
                 {books.length === 0 ? (
                   <p className="text-gray-500">No books available in this category.</p>
                 ) : (
@@ -371,9 +367,11 @@ export default function BooksPage() {
                     {books.map((book) => (
                       <div
                         key={book.id}
-                        className="min-w-[200px] max-w-[200px] bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                        className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                        onClick={() => setSelectedBook(book)}
                       >
-                        <div className="h-40 bg-gray-200 flex items-center justify-center">
+                        <div className=" h-50 bg-gray-200 flex items-center justify-center relative overflow-hidden">
+                          <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
                           {book.imageUrl ? (
                             <div className="relative w-full h-full">
                               <Image
@@ -403,23 +401,12 @@ export default function BooksPage() {
                         </div>
 
                         <div className="p-3">
-                          <h3 className="text-md font-semibold text-gray-900 mb-1 line-clamp-2">
+                          <h3 className="text-md font-normal text-gray-900 mb-1 line-clamp-2">
                             {book.name}
                           </h3>
                           <span className="text-sm text-green-600 font-bold">
                             ${Number(book.price).toFixed(2)}
                           </span>
-
-                          <button
-                            onClick={() => handleAddToCart(book)}
-                            className={`mt-2 w-full px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                              user 
-                                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                            }`}
-                          >
-                            {user ? 'Add to Cart' : 'Login to Purchase'}
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -430,6 +417,89 @@ export default function BooksPage() {
           })
         )}
       </div>
+
+      {/* Book Modal */}
+      {selectedBook && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-900">Book Details</h2>
+              <button
+                onClick={() => setSelectedBook(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4">
+              <div className="flex flex-col items-center text-center">
+                {/* Book Image */}
+                <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                  {selectedBook.imageUrl ? (
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={selectedBook.imageUrl}
+                        alt={selectedBook.name}
+                        fill={true}
+                        sizes="192px"
+                        className="object-cover rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-center">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <p className="text-sm">No Image</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Book Info */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {selectedBook.name}
+                </h3>
+
+                <p className="text-2xl text-green-600 font-bold mb-4">
+                  ${Number(selectedBook.price).toFixed(2)}
+                </p>
+
+                {selectedBook.description && (
+                  <p className="text-gray-700 text-sm mb-6 leading-relaxed">
+                    {selectedBook.description}
+                  </p>
+                )}
+
+                {/* Add to Cart Button */}
+                <button
+                  onClick={() => {
+                    handleAddToCart(selectedBook);
+                    setSelectedBook(null);
+                  }}
+                  className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
+                    user 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {user ? 'Add to Cart' : 'Login to Purchase'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

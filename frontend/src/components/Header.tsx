@@ -35,33 +35,33 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-gw-green-1 text-gw-white">
-      <div className="w-full px-8 sm:px-12 lg:px-16">
+    <header className="sticky top-0 z-50 bg-gw-green-1 text-gw-white h-16">
+      <div className="w-full px-7">
         <div className="flex items-center justify-between h-16 w-full">
           {/* Logo - positioned to the far left */}
-          <div className="flex-shrink-0">
-            <Link href="/" className="text-xl font-calluna font-black">
+          <div className="flex-shrink-0 top-1.5">
+            <Link href="/" className=" text-2xl font-calluna font-black">
               Groundwork Books
             </Link>
           </div>
 
           {/* Center section with navigation and right icons */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center gap-7">
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-8">
-              <Link href="/" className="hover:text-gw-green-2 transition-colors font-helvetica">
+            <nav className="hidden md:flex gap-7">
+              <Link href="/" className="hover:text-gw-green-2 transition-colors font-helvetica text-lg font-light">
                 HOME
               </Link>
-              <Link href="/store" className="hover:text-gw-green-2 transition-colors">
+              <Link href="/store" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 STORE
               </Link>
-              <Link href="/archive" className="hover:text-gw-green-2 transition-colors">
+              <Link href="/archive" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 ARCHIVE
               </Link>
-              <Link href="/community" className="hover:text-gw-green-2 transition-colors">
+              <Link href="/community" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 COMMUNITY
               </Link>
-              <Link href="/about" className="hover:text-gw-green-2 transition-colors">
+              <Link href="/about" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 ABOUT
               </Link>
             </nav>
@@ -70,16 +70,17 @@ export default function Header() {
             <div className="hidden md:block text-gw-green-2">|</div>
 
             {/* Right side icons */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-7">
             {/* User icon with dropdown */}
             <div className="relative" ref={accountDropdownRef}>
               <button
                 onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
                 className="hover:text-gw-green-2 transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <svg width="17" height="21" viewBox="0 0 17 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M0.833374 20.5833C0.833374 16.3491 4.26586 12.9167 8.50004 12.9167C12.7342 12.9167 16.1667 16.3491 16.1667 20.5833H14.25C14.25 17.4077 11.6757 14.8333 8.50004 14.8333C5.3244 14.8333 2.75004 17.4077 2.75004 20.5833H0.833374ZM8.50004 11.9583C5.32317 11.9583 2.75004 9.38521 2.75004 6.20833C2.75004 3.03146 5.32317 0.458334 8.50004 0.458334C11.6769 0.458334 14.25 3.03146 14.25 6.20833C14.25 9.38521 11.6769 11.9583 8.50004 11.9583ZM8.50004 10.0417C10.618 10.0417 12.3334 8.32625 12.3334 6.20833C12.3334 4.09042 10.618 2.375 8.50004 2.375C6.38212 2.375 4.66671 4.09042 4.66671 6.20833C4.66671 8.32625 6.38212 10.0417 8.50004 10.0417Z" fill="white"/>
                 </svg>
+
               </button>
               
               {/* Account Dropdown Menu */}
@@ -170,9 +171,10 @@ export default function Header() {
                 onClick={() => setIsCartDropdownOpen(!isCartDropdownOpen)}
                 className="relative hover:text-gw-green-2 transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
+                <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4.0625 3.4858H19.6655C20.4573 3.4858 20.935 4.3622 20.506 5.02764L17.5907 9.5496C17.2225 10.1208 16.5894 10.4659 15.9098 10.4659H8M8 10.4659L6.29897 12.8783C5.83185 13.5407 6.30564 14.4545 7.11623 14.4545H19.25M8 10.4659L3.51139 2.50883C3.15682 1.88027 2.49111 1.49148 1.76944 1.49148H1.25M8 18.4432C8 18.9939 7.49632 19.4403 6.875 19.4403C6.25368 19.4403 5.75 18.9939 5.75 18.4432C5.75 17.8925 6.25368 17.446 6.875 17.446C7.49632 17.446 8 17.8925 8 18.4432ZM19.25 18.4432C19.25 18.9939 18.7463 19.4403 18.125 19.4403C17.5037 19.4403 17 18.9939 17 18.4432C17 17.8925 17.5037 17.446 18.125 17.446C18.7463 17.446 19.25 17.8925 19.25 18.4432Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
+
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
                     {itemCount}

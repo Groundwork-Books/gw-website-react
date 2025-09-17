@@ -39,13 +39,13 @@ export default function SearchComponent({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gw-green-1 focus:border-transparent bg-white text-gray-900 placeholder-gray-500"
+          className="w-full px-4 py-3 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 placeholder-gray-500"
         />
         {query && (
           <button
             type="button"
             onClick={() => setQuery('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute rounded-full right-4 top-1/2 bg-gw-green-2-600"
           >
             ✕
           </button>

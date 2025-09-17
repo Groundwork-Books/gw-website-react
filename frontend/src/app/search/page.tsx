@@ -29,6 +29,7 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
 
@@ -103,39 +104,45 @@ function SearchPageContent() {
       {/* Header */}
       <Header />
 
-      {/* Hero Section */}
-      <section className="relative h-72 bg-gw-black flex items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
-        <div className="absolute inset-0">
-          <Image 
-            src="/images/hero/book-collage.jpg" 
-            alt="Search books background"
-            fill={true}
-            sizes="100vw"
-            className="object-cover opacity-60"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              target.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
-            <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
-          </div>
-        </div>
-        
-        {/* Hero Content */}
-        <div className="relative z-20 text-center text-white px-4">
-          <h1 className="text-4xl md:text-5xl font-calluna font-black mb-4">Search Our Collection</h1>
-          <p className="text-xl mb-8 opacity-90">Find your next great read</p>
-          
-          {/* Search Component */}
-          <div className="max-w-2xl mx-auto">
-            <SearchComponent 
-              onSearch={handleSearch}
-              placeholder="Search for books by title, author, description..."
-              className="bg-white/10 backdrop-blur-sm rounded-lg p-4"
+      {/* Hero Section (full-bleed) */}
+        <section className="relative h-[200px] flex items-center justify-center isolate">
+          {/* Background image */}
+          <div className="rounded-lg overflow-hidden">
+            <Image
+              src="/images/hero/book-collage.jpg"
+              alt="Book collage background"
+              fill
+              className="object-cover"
+              priority
+              sizes="100vw"
             />
+          </div>
+          {/* Optional overlay for readability */}
+          <div className="absolute inset-0 " />
+  
+          {/* Content */}
+          <div className="relative z-10 w-full px-4">
+            <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+              <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+                Bookstore Selection
+              </h1>
+            </div>
+          </div>
+        </section>
+
+
+{/* Search Section */}
+      <section className=" py-6">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="flex gap-4 items-center">
+            {/* Search Input */}
+            <div className="flex-1">
+              <SearchComponent 
+                placeholder="Search for books ... by title, author, content."
+                className="w-full"
+              />
+            </div>
+            
           </div>
         </div>
       </section>
@@ -146,7 +153,7 @@ function SearchPageContent() {
         {loading && (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1"></div>
-            <p className="mt-2 text-gray-600">Searching books...</p>
+            <p className="mt-2 text-gray-600">Searching</p>
           </div>
         )}
 
@@ -175,9 +182,11 @@ function SearchPageContent() {
               {results.map((book) => (
                 <div
                   key={book.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                  onClick={() => setSelectedBook(book)}
                 >
-                  <div className="h-48 bg-gray-200 flex items-center justify-center">
+                  <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
                     {book.imageUrl ? (
                       <div className="relative w-full h-full">
                         <Image
@@ -227,17 +236,6 @@ function SearchPageContent() {
                         </span>
                       )}
                     </div>
-
-                    <button
-                      onClick={() => handleAddToCart(book)}
-                      className={`w-full px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                        user 
-                          ? 'bg-gw-green-1 hover:bg-gw-green-1/90 text-white' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
-                      }`}
-                    >
-                      {user ? 'Add to Cart' : 'Login to Purchase'}
-                    </button>
                   </div>
                 </div>
               ))}
@@ -284,6 +282,98 @@ function SearchPageContent() {
           </div>
         )}
       </div>
+
+      {/* Book Modal */}
+      {selectedBook && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-900">Book Details</h2>
+              <button
+                onClick={() => setSelectedBook(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4">
+              <div className="flex flex-col items-center text-center">
+                {/* Book Image */}
+                <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                  {selectedBook.imageUrl ? (
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={selectedBook.imageUrl}
+                        alt={selectedBook.name}
+                        fill={true}
+                        sizes="192px"
+                        className="object-cover rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-center">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <p className="text-sm">No Image</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Book Info */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {selectedBook.name}
+                </h3>
+
+                <p className="text-2xl text-green-600 font-bold mb-4">
+                  ${Number(selectedBook.price).toFixed(2)}
+                </p>
+
+                {selectedBook.description && (
+                  <p className="text-gray-700 text-sm mb-6 leading-relaxed">
+                    {selectedBook.description}
+                  </p>
+                )}
+
+                {/* Match Score for Search Results */}
+                {(selectedBook as SearchResult).score && (
+                  <div className="mb-4">
+                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                      {((selectedBook as SearchResult).score! * 100).toFixed(0)}% match
+                    </span>
+                  </div>
+                )}
+
+                {/* Add to Cart Button */}
+                <button
+                  onClick={() => {
+                    handleAddToCart(selectedBook);
+                    setSelectedBook(null);
+                  }}
+                  className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
+                    user 
+                      ? 'bg-gw-green-1 hover:bg-gw-green-1/90 text-white' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                  }`}
+                >
+                  {user ? 'Add to Cart' : 'Login to Purchase'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

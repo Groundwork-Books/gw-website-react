@@ -40,37 +40,29 @@ export default function Home() {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative h-screen bg-gw-black flex items-center justify-center">
-        {/* Background collage */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
-        <div className="absolute inset-0">
-          <div className="relative w-full h-full">
-            <Image 
-              src="/images/hero/book-collage.jpg" 
-              alt="Book collage background"
-              fill={true}
-              sizes="100vw"
-              className="object-cover opacity-60"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.nextElementSibling?.classList.remove('hidden');
-              }}
-            />
-          </div>
-          <div className="hidden w-full h-full bg-gray-600 items-center justify-center">
-            <span className="text-white text-lg">Add book-collage.jpg to /public/images/hero/</span>
-          </div>
+      <section className="relative h-[800px] flex items-center justify-center isolate">
+        {/* Background image */}
+        <div className="rounded-lg overflow-hidden">
+          <Image
+            src="/images/hero/book-collage.jpg"
+            alt="Book collage background"
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
         </div>
+        {/* Optional overlay for readability */}
+        <div className="absolute inset-0 " />
         
         {/* Hero content */}
         <div className="relative z-20 text-center text-white px-4">
-          <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-8 max-w-4xl mx-auto">
+          <div className="bg-white/75 backdrop-blur-sm p-8 max-w-4xl mx-auto">
             <h1 className="font-calluna text-4xl md:text-6xl font-black mb-8 leading-tight text-gw-green-1">
               A bookstore, organizing space, and community hub.
             </h1>
-            <button onClick={() => window.location.href = "/about"}  className="font-helvetica bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
-              Check us out
+            <button onClick={() => window.location.href = "/about"}  className="font-helvetica border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold text-lg hover:bg-gw-green-1 hover:text-gw-white transition-colors">
+              Check us out  {" >"}
             </button>
           </div>
         </div>
