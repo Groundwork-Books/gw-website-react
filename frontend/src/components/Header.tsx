@@ -55,9 +55,9 @@ export default function Header() {
               <Link href="/store" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 STORE
               </Link>
-              <Link href="/archive" className="hover:text-gw-green-2 transition-colors text-lg font-light">
+              {/* <Link href="/archive" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 ARCHIVE
-              </Link>
+              </Link> */}
               <Link href="/community" className="hover:text-gw-green-2 transition-colors text-lg font-light">
                 COMMUNITY
               </Link>
@@ -248,9 +248,9 @@ export default function Header() {
               <Link href="/store" className="block py-2 hover:text-gw-green-2 transition-colors">
                 STORE
               </Link>
-              <Link href="/archive" className="block py-2 hover:text-gw-green-2 transition-colors">
+              {/* <Link href="/archive" className="block py-2 hover:text-gw-green-2 transition-colors">
                 ARCHIVE
-              </Link>
+              </Link> */}
               <Link href="/community" className="block py-2 hover:text-gw-green-2 transition-colors">
                 COMMUNITY
               </Link>
