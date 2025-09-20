@@ -1,6 +1,7 @@
 'use client';
 
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import EventsGrid from '@/components/EventsGrid';
 console.log('EventsGrid component:', EventsGrid);
 import Link from 'next/link';
@@ -130,7 +131,7 @@ export default function CommunityPage() {
             <div className="order-1 lg:order-2 space-y-6">
               <h2 className="text-3xl font-calluna font-bold text-gw-green-1">Interested In Volunteering?</h2>
               <p className="text-gw-black/80 leading-relaxed font-helvetica">
-                Like what you see and share our values? Come join us as a volunteer at Groundworks! 
+                Like what you see and share our values? Come join us as a volunteer at Groundworks!
                 Visit us in person to learn more or reach out via the contact form below.
               </p>
               <button className="bg-gw-green-2 border-2 border-gw-green-1 text-gw-green-1 px-8 py-3 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors">
@@ -204,40 +205,7 @@ export default function CommunityPage() {
           </div>
         </div>
       </section>
-
-      {/* Footer (full-bleed by default) */}
-      <footer className="bg-gw-green-1 text-gw-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left side - Contact info */}
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold">Groundwork Books</h3>
-              <div className="space-y-2 text-sm">
-                <p>0323 UCSD Old Student Center, La Jolla, CA 92037</p>
-                <p>groundworkbookscollective@gmail.com</p>
-                <p>(858) 224-2614</p>
-              </div>
-            </div>
-
-            {/* Right side - Navigation */}
-            <div className="space-y-4">
-              <nav className="flex flex-wrap gap-6 text-sm">
-                <Link href="/" className="hover:text-gw-green-2 transition-colors">HOME</Link>
-                <Link href="/books" className="hover:text-gw-green-2 transition-colors">STORE</Link>
-                <Link href="/archive" className="hover:text-gw-green-2 transition-colors">ARCHIVE</Link>
-                <Link href="/community" className="hover:text-gw-green-2 transition-colors">COMMUNITY</Link>
-                <Link href="/about" className="hover:text-gw-green-2 transition-colors">ABOUT</Link>
-              </nav>
-            </div>
-          </div>
-
-          {/* Bottom section */}
-          <div className="mt-8 pt-8 border-t border-gw-green-1/70 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-gw-green-2">Groundwork Books Collective © 2025</p>
-            <div className="flex space-x-4 mt-4 md:mt-0">{/* Social icons unchanged */}</div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

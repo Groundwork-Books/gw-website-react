@@ -2,12 +2,16 @@ import React from "react";
 import Link from 'next/link';
 
 const Footer = () => (
-<footer className="bg-gw-green-1 text-gw-white py-12">
+<footer className="bg-gw-green-1 text-gw-white py-8">
 <div className="w-full px-7">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left side - Contact info */}
         <div className="space-y-4">
-          <h3 className="text-2xl font-bold font-calluna">Groundwork Books</h3>
+          <Link href="/" className="block w-fit">
+            <h3 className="text-2xl font-bold font-calluna hover:text-gw-green-2 transition-colors">
+              Groundwork Books
+            </h3>
+          </Link>
           <div className="space-y-2 text-base">
             <p>
                 <a
@@ -38,6 +42,7 @@ const Footer = () => (
             </p>
           </div>
         </div>
+
         {/* Right side - Navigation */}
         <div className="flex flex-col items-end justify-between h-full">
           <nav className="flex flex-wrap gap-8 text-lg font-normal">
@@ -49,8 +54,9 @@ const Footer = () => (
           </nav>
         </div>
       </div>
+
       {/* Bottom section */}
-      <div className="mt-8 pt-8 border-t border-gw-white/70 flex flex-col md:flex-row justify-between items-center">
+      <div className="mt-5 pt-5 border-t border-gw-white/70 flex flex-col md:flex-row justify-between items-center">
         <p className="text-base text-gw-white">
           Groundwork Books Collective @ {new Date().getFullYear()}
         </p>
