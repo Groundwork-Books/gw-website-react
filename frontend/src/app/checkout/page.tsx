@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface CustomerInfo {
@@ -16,13 +19,13 @@ export default function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
   const { cart, clearCart } = useCart();
   const router = useRouter();
-  
+
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
     email: user?.email || '',
     phone: ''
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,7 +48,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!cart?.items || cart.items.length === 0) {
       setError('Your cart is empty');
       return;
@@ -60,7 +63,7 @@ export default function CheckoutPage() {
     setError('');
 
     try {
-      
+
       // Create Payment Link instead of processing payment directly
       const response = await fetch('http://localhost:8080/api/orders/create-payment-link', {
         method: 'POST',
@@ -80,7 +83,7 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (data.success && data.payment_link_url) {
-        
+
         // Redirect to Square's hosted checkout page immediately
         // Don't clear cart until after successful payment
         window.location.href = data.payment_link_url;
@@ -113,11 +116,11 @@ export default function CheckoutPage() {
 
   if (!cart?.items || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-gray-50">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Your Cart is Empty</h1>
           <p className="text-gray-600 mb-6">Add some books to your cart before checking out.</p>
-          <Link 
+          <Link
             href="/store"
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
@@ -129,17 +132,45 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gw-green-2">
+      <Header />
+
+            {/* Hero Section (full-bleed) */}
+            <section className="relative h-[200px] flex items-center justify-center isolate">
+              {/* Background image */}
+              <div className="rounded-lg overflow-hidden">
+                <Image
+                  src="/images/hero/book-collage.jpg"
+                  alt="Book collage background"
+                  fill
+                  className="object-cover"
+                  priority
+                  sizes="100vw"
+                />
+              </div>
+              {/* Optional overlay for readability */}
+              <div className="absolute inset-0 " />
+
+              {/* Content */}
+              <div className="relative z-10 w-full px-4">
+                <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+                  <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+                    Checkout
+                  </h1>
+                </div>
+              </div>
+            </section>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-6 py-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Order Summary */}
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Order Summary</h2>
-                
+
                 <div className="space-y-4">
                   {cart?.items && cart.items.map((item, index) => (
                     <div key={index} className="flex justify-between items-center py-4 border-b border-gray-200">
@@ -154,7 +185,7 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   ))}
-                  
+
                   <div className="flex justify-between items-center pt-4 border-t-2 border-gray-300">
                     <span className="text-lg font-bold text-gray-900">Total:</span>
                     <span className="text-lg font-bold text-gray-900">
@@ -166,7 +197,7 @@ export default function CheckoutPage() {
                 <div className="bg-blue-50 p-4 rounded-md">
                   <h3 className="font-medium text-blue-900 mb-2">Pickup Information</h3>
                   <p className="text-sm text-blue-800">
-                    Your order will be ready for pickup immediately after payment. 
+                    Your order will be ready for pickup immediately after payment.
                     Please bring a valid ID when picking up your books.
                   </p>
                 </div>
@@ -175,7 +206,7 @@ export default function CheckoutPage() {
               {/* Customer Information */}
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-gray-900">Customer Information</h2>
-                
+
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                     {error}
@@ -247,7 +278,7 @@ export default function CheckoutPage() {
                   <div className="bg-yellow-50 p-4 rounded-md">
                     <h3 className="font-medium text-yellow-900 mb-2">🔒 Secure Payment</h3>
                     <p className="text-sm text-yellow-800">
-                      You&apos;ll be redirected to Square&apos;s secure payment page to complete your purchase. 
+                      You&apos;ll be redirected to Square&apos;s secure payment page to complete your purchase.
                       You&apos;ll receive an email confirmation after payment.
                     </p>
                   </div>
@@ -259,7 +290,7 @@ export default function CheckoutPage() {
                     >
                       Back to Cart
                     </Link>
-                    
+
                     <button
                       type="submit"
                       disabled={loading || !cart?.items || cart.items.length === 0}
@@ -274,6 +305,7 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

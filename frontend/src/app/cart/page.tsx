@@ -2,6 +2,8 @@
 
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Image from 'next/image';
@@ -39,12 +41,40 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gw-green-2">
+      <Header />
+
+      {/* Hero Section (full-bleed) */}
+      <section className="relative h-[200px] flex items-center justify-center isolate">
+        {/* Background image */}
+        <div className="rounded-lg overflow-hidden">
+          <Image
+            src="/images/hero/book-collage.jpg"
+            alt="Book collage background"
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+        </div>
+        {/* Optional overlay for readability */}
+        <div className="absolute inset-0 " />
+
+        {/* Content */}
+        <div className="relative z-10 w-full px-4">
+          <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+            <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+              Shopping Cart
+            </h1>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20" >
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-            <Link 
+            <Link
               href="/store"
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
@@ -59,7 +89,7 @@ export default function CartPage() {
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
               <p className="text-gray-500 mb-6">Add some books to get started!</p>
-              <Link 
+              <Link
                 href="/store"
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
               >
@@ -74,8 +104,8 @@ export default function CartPage() {
                     <div className="flex items-center space-x-4">
                       <div className="w-16 h-20 bg-gray-200 rounded flex items-center justify-center">
                         {item.book.imageUrl ? (
-                          <Image 
-                            src={item.book.imageUrl} 
+                          <Image
+                            src={item.book.imageUrl}
                             alt={item.book.name}
                             width={64}
                             height={80}
@@ -87,13 +117,13 @@ export default function CartPage() {
                           </svg>
                         )}
                       </div>
-                      
+
                       <div>
                         <h3 className="font-semibold text-gray-900">{item.book.name}</h3>
                         <p className="text-gray-600">${item.book.price.toFixed(2)} each</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center border border-gray-300 rounded">
                         <button
@@ -112,13 +142,13 @@ export default function CartPage() {
                           +
                         </button>
                       </div>
-                      
+
                       <div className="w-24 text-right">
                         <span className="font-semibold">
                           ${(item.book.price * item.quantity).toFixed(2)}
                         </span>
                       </div>
-                      
+
                       <button
                         onClick={() => removeFromCart(item.book.id)}
                         className="text-red-600 hover:text-red-800 p-1"
@@ -166,6 +196,7 @@ export default function CartPage() {
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -35,7 +36,7 @@ export default function ArchivePage() {
         </div>
       </section>
 
-      
+
       <section className="flex flex-1 flex-col justify-center items-center w-full min-h-[calc(100vh-260px)]">
         <div className="bg-gw-green-2/90 text-center px-6 py-12 rounded-lg shadow-lg">
           <h2 className="text-2xl font-bold text-gw-green-1 mb-4">Page Under Construction</h2>
@@ -44,6 +45,7 @@ export default function ArchivePage() {
           </p>
         </div>
       </section>
+      <Footer />
     </div>
   )
 }

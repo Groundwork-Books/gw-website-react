@@ -1,6 +1,7 @@
 'use client';
 
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
@@ -61,7 +62,7 @@ export default function BooksPage() {
 
     // Determine which categories to fetch
     let categoriesToFetch = categories.filter(cat => categoryIds.includes(cat.id));
-    
+
     // If a genre is selected and it's not in the default categories, add it
     if (selectedGenre && !categoryIds.includes(selectedGenre)) {
       const selectedCategory = categories.find(cat => cat.id === selectedGenre);
@@ -77,10 +78,10 @@ export default function BooksPage() {
 
     const promises = categoriesToFetch.map(async (cat) => {
       // Use different endpoint based on whether genre is selected
-      const endpoint = selectedGenre === cat.id 
+      const endpoint = selectedGenre === cat.id
         ? `${apiUrl}/api/books/category/${cat.id}` // All books for tile view
         : `${apiUrl}/api/books/categorycarousel/${cat.id}`; // Carousel books for carousel view
-      
+
       const response = await fetch(endpoint);
       if (!response.ok) {
         throw new Error(`Response ${response.status}: ${response.statusText}`);
@@ -183,7 +184,7 @@ export default function BooksPage() {
           </div>
           {/* Optional overlay for readability */}
           <div className="absolute inset-0 " />
-  
+
           {/* Content */}
           <div className="relative z-10 w-full px-4">
             <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
@@ -193,7 +194,7 @@ export default function BooksPage() {
             </div>
           </div>
         </section>
-      
+
 
       {/* Search Section */}
       <section className=" py-6">
@@ -201,15 +202,15 @@ export default function BooksPage() {
           <div className="flex gap-4 items-center">
             {/* Search Input */}
             <div className="flex-1">
-              <SearchComponent 
+              <SearchComponent
                 placeholder="Search books...         (powered by some cool AI)"
                 className="w-full"
               />
             </div>
-            
+
             {/* Genre Dropdown */}
             <div className="relative">
-              <select 
+              <select
                 className="px-4 py-3 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 w-36"
                 value={selectedGenre}
                 onChange={handleGenreChange}
@@ -239,7 +240,7 @@ export default function BooksPage() {
                 {selectedBooks.length} book{selectedBooks.length !== 1 ? 's' : ''} found
               </p>
             </div>
-            
+
             {paginatedBooks.length === 0 ? (
               <p className="text-gray-500 text-center py-12">No books available in this genre.</p>
             ) : (
@@ -308,7 +309,7 @@ export default function BooksPage() {
                     >
                       Previous
                     </button>
-                    
+
                     {/* Page numbers */}
                     {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                       let pageNum;
@@ -321,7 +322,7 @@ export default function BooksPage() {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
@@ -336,7 +337,7 @@ export default function BooksPage() {
                         </button>
                       );
                     })}
-                    
+
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
@@ -488,8 +489,8 @@ export default function BooksPage() {
                     setSelectedBook(null);
                   }}
                   className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
-                    user 
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    user
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
                   }`}
                 >
@@ -500,6 +501,7 @@ export default function BooksPage() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }

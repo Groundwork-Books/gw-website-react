@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
@@ -67,7 +68,7 @@ function SearchPageContent() {
         },
         body: JSON.stringify({
           query: searchQuery,
-          limit: 20,
+          limit: 30,
           namespace: "default"
         }),
       });
@@ -92,7 +93,7 @@ function SearchPageContent() {
   const handleSearch = (newQuery: string) => {
     setQuery(newQuery);
     performSearch(newQuery);
-    
+
     // Update URL without page reload
     const url = new URL(window.location.href);
     url.searchParams.set('q', newQuery);
@@ -100,7 +101,7 @@ function SearchPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gw-white">
+    <div className="min-h-screen bg-gw-white flex flex-col">
       {/* Header */}
       <Header />
 
@@ -119,7 +120,7 @@ function SearchPageContent() {
           </div>
           {/* Optional overlay for readability */}
           <div className="absolute inset-0 " />
-  
+
           {/* Content */}
           <div className="relative z-10 w-full px-4">
             <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
@@ -137,18 +138,18 @@ function SearchPageContent() {
           <div className="flex gap-4 items-center">
             {/* Search Input */}
             <div className="flex-1">
-              <SearchComponent 
+              <SearchComponent
                 placeholder="Search for books ... by title, author, content."
                 className="w-full"
               />
             </div>
-            
+
           </div>
         </div>
       </section>
 
       {/* Main Content */}
-      <div className="p-6">
+      <div className="p-6 pb-20 flex-1">
         {/* Search Status */}
         {loading && (
           <div className="text-center py-8">
@@ -167,8 +168,8 @@ function SearchPageContent() {
         {hasSearched && !loading && !error && (
           <div className="mb-6 max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold text-gray-900">
-              {results.length > 0 
-                ? `Found ${results.length} book${results.length !== 1 ? 's' : ''} for "${query}"` 
+              {results.length > 0
+                ? `Found ${results.length} book${results.length !== 1 ? 's' : ''} for "${query}"`
                 : `No books found for "${query}"`
               }
             </h2>
@@ -219,13 +220,13 @@ function SearchPageContent() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                       {book.name}
                     </h3>
-                    
+
                     {book.description && (
                       <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                         {book.description}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-lg text-gw-green-1 font-bold">
                         ${Number(book.price).toFixed(2)}
@@ -252,7 +253,7 @@ function SearchPageContent() {
             <p className="text-gray-400 mb-6">
               Try different keywords or browse our store instead.
             </p>
-            <Link 
+            <Link
               href="/store"
               className="inline-block bg-gw-green-1 text-white px-6 py-3 rounded-lg hover:bg-gw-green-1/90 transition-colors"
             >
@@ -272,7 +273,7 @@ function SearchPageContent() {
             </p>
             <div className="space-y-4">
               <p className="text-sm text-gray-500">Or browse our categories:</p>
-              <Link 
+              <Link
                 href="/store"
                 className="inline-block bg-gw-green-1 text-white px-6 py-3 rounded-lg hover:bg-gw-green-1/90 transition-colors"
               >
@@ -362,8 +363,8 @@ function SearchPageContent() {
                     setSelectedBook(null);
                   }}
                   className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
-                    user 
-                      ? 'bg-gw-green-1 hover:bg-gw-green-1/90 text-white' 
+                    user
+                      ? 'bg-gw-green-1 hover:bg-gw-green-1/90 text-white'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
                   }`}
                 >
@@ -374,6 +375,7 @@ function SearchPageContent() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }
