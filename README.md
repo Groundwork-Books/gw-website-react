@@ -1,5 +1,7 @@
 # Groundwork Books Website
 
+NOTICE: the repo is now public, so make sure you don't fuck up the git ignore and don't push any env's
+
 **Google Form For Events and Instagram:**
 https://docs.google.com/spreadsheets/d/1S1Vw0w3CUGwjYVYNG60kUpBagEB7KXD4IfY6mLH6PEI/edit?usp=sharing
 
