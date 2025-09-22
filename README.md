@@ -80,6 +80,12 @@ npm start
 ```
 
 Make sure to add your email to your commits so that Vercel doesn't freak out. It takes 20 seconds just do what [this](https://docs.github.com/en/account-and-profile/how-tos/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address#setting-your-commit-email-address-in-git) says
+
+### 5. Current Deployment
+
+Regarding the current deployment. The frontend is deployed via [Vercel](https://vercel.com/groundwork-books/gw-website-react-frontend) and the backend is deployed via [Render](https://dashboard.render.com/) (login via GW email for both).   
+- Vercel autodeploys main if the last commit was done by the sole allowed user (which is currently Maxim but you can change it in the app).   
+- For Render, you have to manually deploy and the `NEXT_PUBLIC_API_URL` should not contain the port number (idk why, but it doesn't work if you do.)
 ## Key resources:
 
 - The figma (frontend mockup) is available [here](https://www.figma.com/design/Al34xSygT7JdXAEx5f4dCN/Groundworks-Website-Redesign---Adelina?node-id=1242-591&t=MRPcgBKGXxqGE7XO-1)
