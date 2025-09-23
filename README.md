@@ -44,10 +44,10 @@ npm install
 ```
 Get these vscode extensions
 
-```
+```bash
 austenc.tailwind-docs
 bradlc.vscode-tailwindcss
-stivo.tailwind-fold
+stivo.tailwind-fold  #this one is up to user preference
 ```
 ### 2. Environment Setup
 Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
