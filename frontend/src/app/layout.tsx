@@ -4,7 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
-import { GoogleAnalytics } from '@next/third-parties/google';
+import { GoogleTagManager } from '@next/third-parties/google'
 
 // Load Calluna font
 const calluna = localFont({
@@ -47,7 +47,7 @@ export default function RootLayout({
       <body
         className={`${calluna.variable} ${helvetica.variable} antialiased`}
       >
-        <GoogleAnalytics gaId="G-RBZGQWDEZE" />
+        <GoogleTagManager gtmId="G-RBZGQWDEZE" />
         <AuthProvider>
           <CartProvider>
             
