@@ -1,5 +1,7 @@
 # Groundwork Books Website
 
+NOTICE: the repo is now public, so make sure you don't fuck up the git ignore and don't push any env's
+
 **Google Form For Events and Instagram:**
 https://docs.google.com/spreadsheets/d/1S1Vw0w3CUGwjYVYNG60kUpBagEB7KXD4IfY6mLH6PEI/edit?usp=sharing
 
@@ -42,17 +44,17 @@ npm install
 ```
 Get these vscode extensions
 
-```
+```bash
 austenc.tailwind-docs
 bradlc.vscode-tailwindcss
-stivo.tailwind-fold
+stivo.tailwind-fold  #this one is up to user preference
 ```
 ### 2. Environment Setup
 Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
 
 **Backend** (`backend/.env`)  
 **Frontend** (`frontend/.env`)  
-**Next.js** (`./frontend/next-env.d.ts`)
+
 
 ### 3. Development
 Run each app independently:
@@ -105,7 +107,7 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 ## Tech Stack
 - **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS - **Hosted via Vercel**
-- **Backend:** Node.js, Express.js, Square API - **Hosted via Render**
+- **Backend:** Node.js, Express.js, Square API, Pinecone API - **Hosted via Render**
 - **Cart:** React Context + localStorage
 - **Architecture:** Separated frontend/backend with API communication
 
