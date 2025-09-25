@@ -14,6 +14,7 @@ export default function Header() {
   const cartDropdownRef = useRef<HTMLDivElement>(null);
   const { itemCount } = useCart();
 
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -28,6 +29,19 @@ export default function Header() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    // Clean up in case component unmounts while menu is open
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [isMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -82,7 +96,7 @@ export default function Header() {
                 </svg>
 
               </button>
-              
+
               {/* Account Dropdown Menu */}
               {isAccountDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-gw-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
@@ -181,7 +195,7 @@ export default function Header() {
                   </span>
                 )}
               </button>
-              
+
               {/* Cart Dropdown Menu */}
               {isCartDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-gw-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
@@ -228,9 +242,10 @@ export default function Header() {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden hover:text-gw-green-2 transition-colors"
+              className="md:hidden hover:text-gw-green-2 transition-colors flex items-center self-center p-0 relative -top-0.5"
+              aria-label="Toggle menu"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
               </svg>
             </button>
@@ -239,27 +254,58 @@ export default function Header() {
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden border-t border-gw-green-1/70 py-4">
-            <div className="space-y-2">
-              <Link href="/" className="block py-2 hover:text-gw-green-2 transition-colors">
-                HOME
-              </Link>
-              <Link href="/store" className="block py-2 hover:text-gw-green-2 transition-colors">
-                STORE
-              </Link>
-              {/* <Link href="/archive" className="block py-2 hover:text-gw-green-2 transition-colors">
-                ARCHIVE
-              </Link> */}
-              <Link href="/community" className="block py-2 hover:text-gw-green-2 transition-colors">
-                COMMUNITY
-              </Link>
-              <Link href="/about" className="block py-2 hover:text-gw-green-2 transition-colors">
-                ABOUT
-              </Link>
-            </div>
+        {/* Mobile Navigation - Fullscreen Overlay */}
+        <div
+          className={`fixed inset-0 z-50 md:hidden bg-gw-green-1/90 backdrop-blur-sm transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          style={{
+            transitionProperty: 'opacity',
+          }}
+          aria-hidden={!isMenuOpen}
+        >
+          {/* Close button (X) */}
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className="absolute top-3.5 right-6 text-white hover:text-gw-green-2 transition-colors text-3xl focus:outline-none"
+            aria-label="Close menu"
+            tabIndex={isMenuOpen ? 0 : -1}
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+          <div className="flex flex-col items-center justify-center h-full space-y-6">
+            <Link
+              href="/"
+              className={`text-2xl py-2 hover:text-gw-green-2 transition-all duration-400 ease-in-out ${isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+              style={{ transitionDelay: isMenuOpen ? '100ms' : '0ms' }}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              HOME
+            </Link>
+            <Link
+              href="/store"
+              className={`text-2xl py-2 hover:text-gw-green-2 transition-all duration-400 ease-in-out ${isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+              style={{ transitionDelay: isMenuOpen ? '200ms' : '0ms' }}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              STORE
+            </Link>
+            <Link
+              href="/community"
+              className={`text-2xl py-2 hover:text-gw-green-2 transition-all duration-400 ease-in-out ${isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+              style={{ transitionDelay: isMenuOpen ? '300ms' : '0ms' }}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              COMMUNITY
+            </Link>
+            <Link
+              href="/about"
+              className={`text-2xl py-2 hover:text-gw-green-2 transition-all duration-400 ease-in-out ${isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}
+              style={{ transitionDelay: isMenuOpen ? '400ms' : '0ms' }}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              ABOUT
+            </Link>
           </div>
-        )}
+        </div>
       </div>
     </header>
   );
