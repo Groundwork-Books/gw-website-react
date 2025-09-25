@@ -140,13 +140,6 @@ export default function Header() {
                           >
                             My Orders
                           </Link>
-                          <Link
-                            href="/wishlist"
-                            className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
-                            onClick={() => setIsAccountDropdownOpen(false)}
-                          >
-                            Wishlist
-                          </Link>
                           <hr className="my-1 border-gray-200" />
                           <button
                             onClick={handleLogout}

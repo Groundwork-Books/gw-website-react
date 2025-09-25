@@ -203,15 +203,15 @@ export default function BooksPage() {
             {/* Search Input */}
             <div className="flex-1">
               <SearchComponent
-                placeholder="Search books...         (powered by some cool AI)"
+                placeholder="Search books...(powered by some cool AI)"
                 className="w-full"
               />
             </div>
 
             {/* Genre Dropdown */}
-            <div className="relative">
+            <div className="relative w-36">
               <select
-                className="px-4 py-3 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 w-36"
+                className="appearance-none px-4 py-3 pr-10 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 w-full"
                 value={selectedGenre}
                 onChange={handleGenreChange}
               >
@@ -222,6 +222,12 @@ export default function BooksPage() {
                   </option>
                 ))}
               </select>
+              {/* Custom dropdown arrow */}
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
