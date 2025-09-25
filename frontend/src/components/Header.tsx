@@ -172,64 +172,22 @@ export default function Header() {
               )}
             </div>
 
-            {/* Cart icon with dropdown */}
+            {/* Cart icon */}
             <div className="relative" ref={cartDropdownRef}>
-              <button
-                onClick={() => setIsCartDropdownOpen(!isCartDropdownOpen)}
+              <Link
+                href="/cart"
                 className="relative hover:text-gw-green-2 transition-colors"
+                aria-label="View cart"
               >
                 <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M4.0625 3.4858H19.6655C20.4573 3.4858 20.935 4.3622 20.506 5.02764L17.5907 9.5496C17.2225 10.1208 16.5894 10.4659 15.9098 10.4659H8M8 10.4659L6.29897 12.8783C5.83185 13.5407 6.30564 14.4545 7.11623 14.4545H19.25M8 10.4659L3.51139 2.50883C3.15682 1.88027 2.49111 1.49148 1.76944 1.49148H1.25M8 18.4432C8 18.9939 7.49632 19.4403 6.875 19.4403C6.25368 19.4403 5.75 18.9939 5.75 18.4432C5.75 17.8925 6.25368 17.446 6.875 17.446C7.49632 17.446 8 17.8925 8 18.4432ZM19.25 18.4432C19.25 18.9939 18.7463 19.4403 18.125 19.4403C17.5037 19.4403 17 18.9939 17 18.4432C17 17.8925 17.5037 17.446 18.125 17.446C18.7463 17.446 19.25 17.8925 19.25 18.4432Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
                     {itemCount}
                   </span>
                 )}
-              </button>
-
-              {/* Cart Dropdown Menu */}
-              {isCartDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-gw-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {user ? (
-                    <>
-                      <div className="px-4 py-2 border-b border-gray-200">
-                        <p className="text-sm text-gw-black font-medium">
-                          {itemCount > 0 ? `${itemCount} item${itemCount > 1 ? 's' : ''} in cart` : 'Your cart is empty'}
-                        </p>
-                      </div>
-                      <Link
-                        href="/cart"
-                        className="block px-4 py-2 text-sm text-gw-black hover:bg-gw-green-2 transition-colors"
-                        onClick={() => setIsCartDropdownOpen(false)}
-                      >
-                        View Cart
-                      </Link>
-                      {itemCount > 0 && (
-                        <Link
-                          href="/checkout"
-                          className="block px-4 py-2 text-sm text-gw-green-1 hover:bg-gw-green-2 transition-colors font-medium"
-                          onClick={() => setIsCartDropdownOpen(false)}
-                        >
-                          Checkout
-                        </Link>
-                      )}
-                    </>
-                  ) : (
-                    <div className="px-4 py-3">
-                      <p className="text-sm text-gw-black/70 mb-2">You must sign in to view your cart</p>
-                      <Link
-                        href="/login"
-                        className="inline-block bg-gw-green-1 text-gw-white px-3 py-1 rounded text-sm hover:bg-gw-green-1/90 transition-colors"
-                        onClick={() => setIsCartDropdownOpen(false)}
-                      >
-                        Sign In
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
+              </Link>
             </div>
 
             {/* Mobile menu button */}
