@@ -55,8 +55,10 @@ router.get('/category/:categoryId', async (req, res) => {
 // GET /api/books/categorycarousel/:categoryId - Get carousel books by category
 router.get('/categorycarousel/:categoryId', async (req, res) => {
   const { categoryId } = req.params;
+  
   try {
-    const books = await getCarouselBooksByCategory(categoryId);
+    const carouselLimit =  20; // Default to 20
+    const books = await getCarouselBooksByCategory(categoryId, carouselLimit);
     if (!books) {
       return res.status(404).json({ error: 'Books not found' });
     }
