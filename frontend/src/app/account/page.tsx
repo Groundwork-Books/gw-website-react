@@ -99,6 +99,15 @@ export default function AccountPage() {
         </div>
       </div>
       </div>
+      {/* Logout Button */}
+      <div className="flex justify-center pb-10">
+        <button
+          onClick={handleLogout}
+          className="mt-6 px-6 py-2 bg-gw-green-1 text-white rounded-lg font-semibold shadow hover:bg-gw-green-3 transition-colors duration-200"
+        >
+          Log Out
+        </button>
+      </div>
       <Footer />
     </div>
   );

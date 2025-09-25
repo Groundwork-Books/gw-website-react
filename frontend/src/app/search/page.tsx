@@ -49,7 +49,6 @@ function SearchPageContent() {
       return;
     }
     addToCart(book);
-    alert(`Added "${book.name}" to cart!`);
   };
 
   const performSearch = async (searchQuery: string) => {
@@ -143,6 +142,16 @@ function SearchPageContent() {
                 className="w-full"
               />
             </div>
+            {/* Back to Store Button */}
+            <Link
+              href="/store"
+              className="relative w-48 appearance-none px-4 py-3 pr-10 rounded-full focus:outline-none focus:ring-0 bg-gw-green-2 text-gray-900 flex items-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Store
+            </Link>
 
           </div>
         </div>
