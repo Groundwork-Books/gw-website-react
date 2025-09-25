@@ -3,7 +3,7 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
@@ -18,6 +18,90 @@ const categories = categoryIds.map((id, i) => ({
   name: categoryNames[i] || `Category ${i + 1}`,
 }));
 
+// Lazy loading image component
+function LazyBookImage({ 
+  book, 
+  priority = false, 
+  loadImage, 
+  loadedImages 
+}: { 
+  book: Book; 
+  priority: boolean; 
+  loadImage: (imageId: string) => void;
+  loadedImages: Record<string, string>;
+}) {
+  const imgRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(priority); // Priority images start as "in view"
+  
+  // Use the loaded image URL if available, fallback to book's imageUrl
+  const effectiveImageUrl = book.imageId && loadedImages[book.imageId] ? loadedImages[book.imageId] : book.imageUrl;
+  
+  useEffect(() => {
+    if (priority || !imgRef.current) return; // Skip intersection observer for priority images
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isInView) {
+            setIsInView(true);
+            observer.disconnect(); // Stop observing once image is in view
+          }
+        });
+      },
+      { 
+        rootMargin: '50px', // Start loading images 50px before they enter viewport
+        threshold: 0.1 
+      }
+    );
+    
+    observer.observe(imgRef.current);
+    
+    return () => observer.disconnect();
+  }, [priority, isInView]);
+  
+  useEffect(() => {
+    if (isInView && book.imageId && !effectiveImageUrl) {
+      loadImage(book.imageId);
+    }
+  }, [isInView, book.imageId, effectiveImageUrl, loadImage]);
+  
+  return (
+    <div ref={imgRef} className="relative w-full h-full">
+      {effectiveImageUrl ? (
+        <Image
+          src={effectiveImageUrl}
+          alt={book.name}
+          fill={true}
+          priority={priority}
+          loading={priority ? "eager" : "lazy"}
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+          className="object-cover"
+        />
+      ) : (
+        <div className="text-gray-400 text-center flex items-center justify-center h-full">
+          {isInView && book.imageId ? (
+            // Loading state
+            <div className="animate-pulse">
+              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs">Loading...</p>
+            </div>
+          ) : (
+            // No image placeholder
+            <div>
+              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs">No Image</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BooksPage() {
   const [booksByCategory, setBooksByCategory] = useState<Record<string, Book[]>>({});
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
@@ -30,16 +114,49 @@ export default function BooksPage() {
   const { user } = useAuth();
   const { addToCart } = useCart();
 
+  // Add state for managing image loading
+  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [loadedImages, setLoadedImages] = useState<Record<string, string>>({});
+
+  // Fetch categories on initial load
   useEffect(() => {
     fetchCategories();
-    fetchAllCategories();
   }, []);
 
+  // Fetch book data only when categories are loaded or genre selection changes
   useEffect(() => {
     if (categories.length > 0) {
       fetchAllCategories();
     }
   }, [selectedGenre, categories]);
+
+  // Function to load an individual image on demand
+  const loadImageOnDemand = useCallback(async (imageId: string) => {
+    if (!imageId || loadedImages[imageId] || loadingImages.has(imageId)) {
+      return; // Already loaded or loading
+    }
+
+    setLoadingImages(prev => new Set(prev).add(imageId));
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/books/image/${imageId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.imageUrl) {
+          setLoadedImages(prev => ({ ...prev, [imageId]: data.imageUrl }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load image:', error);
+    } finally {
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageId);
+        return newSet;
+      });
+    }
+  }, [loadedImages, loadingImages]);
 
   const fetchCategories = async () => {
     try {
@@ -105,7 +222,36 @@ export default function BooksPage() {
   }
 };
 
-  const handleAddToCart = (book: Book) => {
+  // Memoize expensive calculations to prevent unnecessary recalculations
+  const selectedBooks = useMemo(() => {
+    if (!selectedGenre) return [];
+    return booksByCategory[selectedGenre] || [];
+  }, [selectedGenre, booksByCategory]);
+
+  const categoriesToDisplay = useMemo(() => {
+    if (selectedGenre) {
+      // If a genre is selected, return empty array (we'll show tile view instead)
+      return [];
+    }
+    // If no genre selected, show the original categories from env
+    return categories.filter(cat => categoryIds.includes(cat.id));
+  }, [selectedGenre, categories]);
+
+  // Memoize pagination calculations
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(selectedBooks.length / booksPerPage);
+    const startIndex = (currentPage - 1) * booksPerPage;
+    const paginatedBooks = selectedBooks.slice(startIndex, startIndex + booksPerPage);
+    
+    return {
+      totalPages,
+      startIndex,
+      paginatedBooks
+    };
+  }, [selectedBooks, currentPage, booksPerPage]);
+
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleAddToCart = useCallback((book: Book) => {
     if (!user) {
       // More elegant redirect - no confirm dialog needed
       window.location.href = `/login?redirect=${encodeURIComponent('/store')}&message=${encodeURIComponent('Please log in to add items to your cart')}`;
@@ -113,40 +259,18 @@ export default function BooksPage() {
     }
     addToCart(book);
     alert(`Added "${book.name}" to cart!`);
-  };
+  }, [user, addToCart]);
 
-  const handleGenreChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleGenreChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedGenre(event.target.value);
     setCurrentPage(1); // Reset to first page when genre changes
-  };
+  }, []);
 
-  // Get books for the selected genre with pagination
-  const getSelectedGenreBooks = () => {
-    if (!selectedGenre) return [];
-    return booksByCategory[selectedGenre] || [];
-  };
-
-  // Calculate pagination for selected genre
-  const selectedBooks = getSelectedGenreBooks();
-  const totalPages = Math.ceil(selectedBooks.length / booksPerPage);
-  const startIndex = (currentPage - 1) * booksPerPage;
-  const paginatedBooks = selectedBooks.slice(startIndex, startIndex + booksPerPage);
-
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Filter categories to display based on selected genre
-  const getCategoriesToDisplay = () => {
-    if (selectedGenre) {
-      // If a genre is selected, return empty array (we'll show tile view instead)
-      return [];
-    }
-    // If no genre selected, show the original categories from env
-    return categories.filter(cat => categoryIds.includes(cat.id));
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -241,13 +365,13 @@ export default function BooksPage() {
               </p>
             </div>
 
-            {paginatedBooks.length === 0 ? (
+            {paginationData.paginatedBooks.length === 0 ? (
               <p className="text-gray-500 text-center py-12">No books available in this genre.</p>
             ) : (
               <>
                 {/* Books Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
-                  {paginatedBooks.map((book) => (
+                  {paginationData.paginatedBooks.map((book: Book, index: number) => (
                     <div
                       key={book.id}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -255,32 +379,12 @@ export default function BooksPage() {
                     >
                       <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                        {book.imageUrl ? (
-                          <div className="relative w-full h-full">
-                            <Image
-                              src={book.imageUrl}
-                              alt={book.name}
-                              fill={true}
-                              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-gray-400 text-center">
-                            <svg
-                              className="w-8 h-8 mx-auto mb-2"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <p className="text-xs">No Image</p>
-                          </div>
-                        )}
+                        <LazyBookImage 
+                          book={book} 
+                          priority={index < 6} 
+                          loadImage={loadImageOnDemand}
+                          loadedImages={loadedImages}
+                        />
                       </div>
 
                       <div className="p-3">
@@ -296,7 +400,7 @@ export default function BooksPage() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {paginationData.totalPages > 1 && (
                   <div className="flex justify-center items-center space-x-2">
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
@@ -311,14 +415,14 @@ export default function BooksPage() {
                     </button>
 
                     {/* Page numbers */}
-                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    {Array.from({ length: Math.min(paginationData.totalPages, 5) }, (_, i) => {
                       let pageNum;
-                      if (totalPages <= 5) {
+                      if (paginationData.totalPages <= 5) {
                         pageNum = i + 1;
                       } else if (currentPage <= 3) {
                         pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
+                      } else if (currentPage >= paginationData.totalPages - 2) {
+                        pageNum = paginationData.totalPages - 4 + i;
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
@@ -340,9 +444,9 @@ export default function BooksPage() {
 
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === paginationData.totalPages}
                       className={`px-3 py-2 rounded-md text-sm font-medium ${
-                        currentPage === totalPages
+                        currentPage === paginationData.totalPages
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       }`}
@@ -356,7 +460,7 @@ export default function BooksPage() {
           </div>
         ) : (
           // Carousel view for no genre selected
-          getCategoriesToDisplay().map((cat) => {
+          categoriesToDisplay.map((cat: {id: string, name: string}) => {
             const books = (booksByCategory[cat.id] || []).slice(0, 20);
             return (
               <div key={cat.id} className="mb-12">
@@ -365,7 +469,7 @@ export default function BooksPage() {
                   <p className="text-gray-500">No books available in this category.</p>
                 ) : (
                   <div className="flex overflow-x-auto space-x-4 pb-2">
-                    {books.map((book) => (
+                    {books.map((book, index) => (
                       <div
                         key={book.id}
                         className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -379,6 +483,8 @@ export default function BooksPage() {
                                 src={book.imageUrl}
                                 alt={book.name}
                                 fill={true}
+                                priority={index < 8} // Prioritize first 8 images in carousel
+                                loading={index < 8 ? "eager" : "lazy"}
                                 sizes="200px"
                                 className="object-cover"
                               />
@@ -445,6 +551,7 @@ export default function BooksPage() {
                         src={selectedBook.imageUrl}
                         alt={selectedBook.name}
                         fill={true}
+                        priority={true} // Modal images should load immediately
                         sizes="192px"
                         className="object-cover rounded-lg"
                       />

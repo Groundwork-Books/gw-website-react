@@ -188,7 +188,7 @@ async function getBookById(bookId) {
   }
 }
 
-async function fetchCategoryBooksFromSquare(categoryId) {
+async function fetchCategoryBooksFromSquare(categoryId, includeImages = false) {
   const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/search-catalog-items`, {
     method: 'POST',
     headers: {
@@ -213,12 +213,12 @@ async function fetchCategoryBooksFromSquare(categoryId) {
       price: price ? Number(price.amount) / 100 : 0,
       currency: price?.currency || 'USD',
       imageId: itemData.image_ids?.[0] || null,
-      imageUrl: null,
+      imageUrl: null, // Will be loaded separately if needed
     };
   });
 
-  // Batch fetch images to avoid rate limits
-  if (books.length > 0) {
+  // Only fetch images if explicitly requested (for carousel view)
+  if (includeImages && books.length > 0) {
     const imageStart = Date.now();
     console.log(`Batch fetching images for ${books.length} books (batch size: ${BATCH_SIZE})`);
     
@@ -239,17 +239,22 @@ async function fetchCategoryBooksFromSquare(categoryId) {
     const totalImageTime = Date.now() - imageStart;
     const imagesWithUrls = books.filter(b => b.imageUrl).length;
     console.log(`All image fetching complete: ${imagesWithUrls}/${books.length} images loaded in ${totalImageTime}ms`);
+  } else if (books.length > 0) {
+    console.log(`Returning ${books.length} books without images for fast response`);
   }
 
   return books;
 }
 
-async function getBooksByCategory(categoryId, useCache = true) {
+async function getBooksByCategory(categoryId, useCache = true, includeImages = false) {
   const startTime = Date.now();
-  console.log(`Fetching books for category: ${categoryId} (useCache: ${useCache})`);
+  console.log(`Fetching books for category: ${categoryId} (useCache: ${useCache}, includeImages: ${includeImages})`);
+  
+  // Create cache key that includes image preference
+  const cacheKey = includeImages ? `${categoryId}_with_images` : categoryId;
   
   if (useCache) {
-    const cached = readCache(categoryId);
+    const cached = readCache(cacheKey);
     if (cached) {
       console.log(`Category fetch complete: ${categoryId} - ${Date.now() - startTime}ms (from cache)`);
       return cached;
@@ -258,11 +263,11 @@ async function getBooksByCategory(categoryId, useCache = true) {
 
   console.log(`Cache miss - fetching category ${categoryId} from Square API`);
   const fetchStart = Date.now();
-  const books = await fetchCategoryBooksFromSquare(categoryId);
+  const books = await fetchCategoryBooksFromSquare(categoryId, includeImages);
   const fetchTime = Date.now() - fetchStart;
   
   const writeStart = Date.now();
-  writeCache(categoryId, books);
+  writeCache(cacheKey, books);
   const writeTime = Date.now() - writeStart;
   
   const totalTime = Date.now() - startTime;
@@ -283,7 +288,8 @@ function buildCarouselBooks(books, limit = 20) {
 }
 
 async function getCarouselBooksByCategory(categoryId, limit = 20) {
-  const allBooks = await getBooksByCategory(categoryId);
+  // For carousels, we want images loaded since they're small and visual
+  const allBooks = await getBooksByCategory(categoryId, true, true); // useCache=true, includeImages=true
   return buildCarouselBooks(allBooks, limit);
 }
 

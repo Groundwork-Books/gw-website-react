@@ -36,11 +36,12 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// GET /api/books/category/:categoryId - Get books by category
+// GET /api/books/category/:categoryId - Get books by category (fast, no images)
 router.get('/category/:categoryId', async (req, res) => {
   const { categoryId } = req.params;
   try {
-    const books = await getBooksByCategory(categoryId);
+    // Fast response without images - images will be loaded on-demand
+    const books = await getBooksByCategory(categoryId, true, false); // useCache=true, includeImages=false
     if (!books) {
       return res.status(404).json({ error: 'Books not found' });
     }
