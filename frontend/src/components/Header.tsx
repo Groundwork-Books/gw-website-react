@@ -68,6 +68,19 @@ export default function Header() {
             {/* User icon as direct link(s) */}
             {user ? (
               <>
+                {user.email === 'groundworkbookscollective@gmail.com' && (
+                  <Link
+                    href="/admin"
+                    className="hover:text-gw-green-2 transition-colors flex items-center"
+                    aria-label="Admin Dashboard"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="11" cy="11" r="10" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M7 15V13C7 11.8954 7.89543 11 9 11H13C14.1046 11 15 11.8954 15 13V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="11" cy="8" r="2" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  </Link>
+                )}
                 <Link
                   href="/account"
                   className="hover:text-gw-green-2 transition-colors flex items-center"
@@ -77,15 +90,6 @@ export default function Header() {
                     <path d="M0.833374 20.5833C0.833374 16.3491 4.26586 12.9167 8.50004 12.9167C12.7342 12.9167 16.1667 16.3491 16.1667 20.5833H14.25C14.25 17.4077 11.6757 14.8333 8.50004 14.8333C5.3244 14.8333 2.75004 17.4077 2.75004 20.5833H0.833374ZM8.50004 11.9583C5.32317 11.9583 2.75004 9.38521 2.75004 6.20833C2.75004 3.03146 5.32317 0.458334 8.50004 0.458334C11.6769 0.458334 14.25 3.03146 14.25 6.20833C14.25 9.38521 11.6769 11.9583 8.50004 11.9583ZM8.50004 10.0417C10.618 10.0417 12.3334 8.32625 12.3334 6.20833C12.3334 4.09042 10.618 2.375 8.50004 2.375C6.38212 2.375 4.66671 4.09042 4.66671 6.20833C4.66671 8.32625 6.38212 10.0417 8.50004 10.0417Z" fill="currentColor"/>
                   </svg>
                 </Link>
-                {user.email === 'groundworkbookscollective@gmail.com' && (
-                  <Link
-                    href="/admin"
-                    className="hover:text-orange-500 transition-colors flex items-center ml-2 text-orange-400 font-semibold"
-                    aria-label="Admin Dashboard"
-                  >
-                    🔐 ADMIN
-                  </Link>
-                )}
               </>
             ) : (
               <Link

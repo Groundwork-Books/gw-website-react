@@ -34,7 +34,7 @@ interface Order {
 export default function OrdersPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,11 +50,11 @@ export default function OrdersPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       const response = await fetch(`${apiUrl}/api/orders/customer/${encodeURIComponent(user?.email || '')}`);
       const data = await response.json();
-      
+
       if (data.success) {
         setOrders(data.orders || []);
       } else {
-        setError(data.error || 'Failed to load orders');
+        setError(data.error || 'Failed to load your orders');
       }
     } catch {
       setError('Failed to load orders');
@@ -66,12 +66,12 @@ export default function OrdersPage() {
   useEffect(() => {
     if (user) {
       fetchOrders();
-      
+
       // Auto-refresh orders every 30 seconds to catch status updates
       const interval = setInterval(() => {
         fetchOrders();
       }, 30000);
-      
+
       return () => clearInterval(interval);
     }
   }, [user, fetchOrders]);
@@ -137,7 +137,7 @@ export default function OrdersPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Link 
+          <Link
             href="/store"
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
           >
@@ -154,7 +154,7 @@ export default function OrdersPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Order History</h1>
-            <Link 
+            <Link
               href="/store"
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
             >
@@ -169,7 +169,7 @@ export default function OrdersPage() {
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
               <p className="text-gray-500 mb-6">Start shopping to see your orders here!</p>
-              <Link 
+              <Link
                 href="/store"
                 className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
               >
@@ -181,7 +181,7 @@ export default function OrdersPage() {
               {orders.map((order) => {
                 const orderStatus = order.fulfillments?.[0]?.state || 'PENDING';
                 const itemCount = order.line_items.reduce((total, item) => total + parseInt(item.quantity), 0);
-                
+
                 return (
                   <div key={order.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-4">
@@ -193,7 +193,7 @@ export default function OrdersPage() {
                           {formatDate(order.created_at)} • {itemCount} {itemCount === 1 ? 'item' : 'items'}
                         </p>
                         {/* Display payment email if different from login email */}
-                        {order.fulfillments?.[0]?.pickup_details?.recipient?.email_address && 
+                        {order.fulfillments?.[0]?.pickup_details?.recipient?.email_address &&
                          order.fulfillments[0].pickup_details.recipient.email_address.toLowerCase() !== user?.email?.toLowerCase() && (
                           <p className="text-sm text-blue-600 mt-1">
                             📧 Receipt sent to: {order.fulfillments[0].pickup_details.recipient.email_address}
