@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
 
 interface Order {
@@ -205,6 +206,12 @@ export default function AdminPage() {
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
+              <Link
+                href="/admin/cache-monitor"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+              >
+                Cache Monitor
+              </Link>
               <span className="text-sm text-gray-600">Welcome, {user.email}</span>
               <button
                 onClick={() => router.push('/')}

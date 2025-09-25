@@ -10,7 +10,9 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@next/third-parties": "^15.5.4",
     "@tailwindcss/line-clamp": "^0.4.4",
+    "@vercel/analytics": "^1.5.0",
     "firebase": "^12.1.0",
     "googleapis": "^156.0.0",
     "next": "^15.4.6",

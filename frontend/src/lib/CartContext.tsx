@@ -96,10 +96,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           
           if (savedCart) {
             const parsedCart = JSON.parse(savedCart);
-            console.log('📦 Loading cart from localStorage:', parsedCart);
+            console.log('Loading cart from localStorage:', parsedCart);
             dispatch({ type: 'LOAD_CART', payload: parsedCart });
           } else {
-            console.log('📦 No saved cart found in localStorage');
+            console.log('No saved cart found in localStorage');
           }
         } else {
           // Clear cart for unauthenticated users
@@ -121,7 +121,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     
     try {
       const cartKey = `cart_${user.uid}`;
-      console.log('💾 Saving cart to localStorage:', cart);
+      console.log('Saving cart to localStorage:', cart);
       localStorage.setItem(cartKey, JSON.stringify(cart));
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);

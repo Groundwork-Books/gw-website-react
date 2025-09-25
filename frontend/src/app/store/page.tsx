@@ -3,43 +3,201 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
 import Image from 'next/image';
 
 // Read categories from env
-const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim());
-const categoryNames = (process.env.NEXT_PUBLIC_CATEGORY_NAMES || '').split(',').map(s => s.trim());
+const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+const categoryNames = (process.env.NEXT_PUBLIC_CATEGORY_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
 
-const categories = categoryIds.map((id, i) => ({
+const fallbackCategories = categoryIds.map((id, i) => ({
   id,
   name: categoryNames[i] || `Category ${i + 1}`,
 }));
 
+// Lazy loading image component
+function LazyBookImage({ 
+  book, 
+  priority = false, 
+  loadImage, 
+  loadedImages 
+}: { 
+  book: Book; 
+  priority: boolean; 
+  loadImage: (imageId: string) => void;
+  loadedImages: Record<string, string>;
+}) {
+  const imgRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(priority); // Priority images start as "in view"
+  
+  // Use the loaded image URL if available, fallback to book's imageUrl
+  const effectiveImageUrl = book.imageId && loadedImages[book.imageId] ? loadedImages[book.imageId] : book.imageUrl;
+  
+  useEffect(() => {
+    if (priority || !imgRef.current) return; // Skip intersection observer for priority images
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isInView) {
+            setIsInView(true);
+            observer.disconnect(); // Stop observing once image is in view
+          }
+        });
+      },
+      { 
+        rootMargin: '50px', // Start loading images 50px before they enter viewport
+        threshold: 0.1 
+      }
+    );
+    
+    observer.observe(imgRef.current);
+    
+    return () => observer.disconnect();
+  }, [priority, isInView]);
+  
+  useEffect(() => {
+    if (isInView && book.imageId && !effectiveImageUrl) {
+      loadImage(book.imageId);
+    }
+  }, [isInView, book.imageId, effectiveImageUrl, loadImage]);
+  
+  return (
+    <div ref={imgRef} className="relative w-full h-full">
+      {effectiveImageUrl ? (
+        <Image
+          src={effectiveImageUrl}
+          alt={book.name}
+          fill={true}
+          priority={priority}
+          loading={priority ? "eager" : "lazy"}
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+          className="object-cover"
+        />
+      ) : (
+        <div className="text-gray-400 text-center flex items-center justify-center h-full">
+          {isInView && book.imageId ? (
+            // Loading state
+            <div className="animate-pulse">
+              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs">Loading...</p>
+            </div>
+          ) : (
+            // No image placeholder
+            <div>
+              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs">No Image</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BooksPage() {
   const [booksByCategory, setBooksByCategory] = useState<Record<string, Book[]>>({});
-  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
+  const [categories, setCategories] = useState<{id: string, name: string}[]>(fallbackCategories); // Initialize with fallback categories
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [booksPerPage] = useState(12); // Number of books per page for tile view
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Don't block page rendering
+  const [loadingBooks, setLoadingBooks] = useState(true); // Start with books loading since we show skeleton immediately
   const [error, setError] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
 
+  // Add state for managing image loading
+  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+  const [loadedImages, setLoadedImages] = useState<Record<string, string>>({});
+  const [priorityBookIds, setPriorityBookIds] = useState<Set<string>>(new Set());
+
+  // Helper function to check if a book should be priority loaded
+  const isBookPriority = useCallback((book: Book): boolean => {
+    return priorityBookIds.has(book.id);
+  }, [priorityBookIds]);
+
+  // Fetch categories on initial load
   useEffect(() => {
     fetchCategories();
-    fetchAllCategories();
   }, []);
 
+  // Load carousel books immediately since we have fallback categories
   useEffect(() => {
-    if (categories.length > 0) {
-      fetchAllCategories();
+    if (!selectedGenre) {
+      console.log('Loading carousel books immediately with available categories');
+      fetchCarouselBooks();
+    }
+  }, [selectedGenre]); // Only depend on selectedGenre, not categories since we have fallback
+
+  // Fetch book data only when categories are loaded and user selects a genre
+  useEffect(() => {
+    if (categories.length > 0 && selectedGenre) {
+      fetchSelectedGenreBooks();
     }
   }, [selectedGenre, categories]);
+
+  // Function to load an individual image on demand
+  const loadImageOnDemand = useCallback(async (imageId: string) => {
+    if (!imageId || loadedImages[imageId] || loadingImages.has(imageId)) {
+      return; // Already loaded or loading
+    }
+
+    setLoadingImages(prev => new Set(prev).add(imageId));
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/books/image/${imageId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.imageUrl) {
+          setLoadedImages(prev => ({ ...prev, [imageId]: data.imageUrl }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load image:', error);
+    } finally {
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageId);
+        return newSet;
+      });
+    }
+  }, [loadedImages, loadingImages]);
+
+  // Load priority images for the first 8 books across all categories
+  const loadPriorityImages = useCallback(async (booksByCategory: Record<string, Book[]>) => {
+    const allBooks: Book[] = [];
+    
+    // Collect all books from all categories
+    Object.values(booksByCategory).forEach(books => {
+      allBooks.push(...books);
+    });
+    
+    // Get first 8 books that have imageId
+    const priorityBooks = allBooks.filter(book => book.imageId).slice(0, 8);
+    
+    // Set priority book IDs
+    setPriorityBookIds(new Set(priorityBooks.map(book => book.id)));
+    
+    // Load their images in parallel
+    const imagePromises = priorityBooks.map(book => {
+      if (book.imageId && !loadedImages[book.imageId] && !loadingImages.has(book.imageId)) {
+        return loadImageOnDemand(book.imageId);
+      }
+      return Promise.resolve();
+    });
+    
+    await Promise.all(imagePromises);
+  }, [loadImageOnDemand, loadedImages, loadingImages]);
 
   const fetchCategories = async () => {
     try {
@@ -49,63 +207,117 @@ export default function BooksPage() {
         throw new Error(`Response ${response.status}: ${response.statusText}`);
       }
       const data = await response.json();
-      setCategories(data);
+      // Only update categories if we got valid data, otherwise keep fallback categories
+      if (data && Array.isArray(data) && data.length > 0) {
+        setCategories(data);
+      } else {
+        console.warn('No categories returned from API, using fallback categories');
+      }
     } catch (err) {
       console.error('Error fetching categories:', err);
-      // Don't set error state for categories - just log it
+      // Don't set error state or override categories - just log the error and keep fallback categories
+      console.warn('Failed to fetch categories from API, using fallback categories');
     }
   };
 
-  const fetchAllCategories = async () => {
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-    // Determine which categories to fetch
-    let categoriesToFetch = categories.filter(cat => categoryIds.includes(cat.id));
-
-    // If a genre is selected and it's not in the default categories, add it
-    if (selectedGenre && !categoryIds.includes(selectedGenre)) {
-      const selectedCategory = categories.find(cat => cat.id === selectedGenre);
-      if (selectedCategory) {
-        categoriesToFetch = [selectedCategory];
-      }
-    }
-
-    // If no categories found, fall back to original behavior
-    if (categoriesToFetch.length === 0) {
-      categoriesToFetch = categories.slice(0, Math.min(categories.length, categoryIds.length));
-    }
-
-    const promises = categoriesToFetch.map(async (cat) => {
-      // Use different endpoint based on whether genre is selected
-      const endpoint = selectedGenre === cat.id
-        ? `${apiUrl}/api/books/category/${cat.id}` // All books for tile view
-        : `${apiUrl}/api/books/categorycarousel/${cat.id}`; // Carousel books for carousel view
-
-      const response = await fetch(endpoint);
+  // Fetch books for selected genre (tile view)
+  const fetchSelectedGenreBooks = async () => {
+    if (!selectedGenre) return;
+    
+    setLoadingBooks(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${apiUrl}/api/books/category/${selectedGenre}`);
       if (!response.ok) {
         throw new Error(`Response ${response.status}: ${response.statusText}`);
       }
       const data = await response.json();
-      return { id: cat.id, books: data as Book[] };
-    });
-
-    const resultsArray = await Promise.all(promises);
-
-    const results: Record<string, Book[]> = {};
-    for (const { id, books } of resultsArray) {
-      results[id] = books;
+      setBooksByCategory(prev => ({ ...prev, [selectedGenre]: data as Book[] }));
+    } catch (err) {
+      console.error('Error fetching genre books:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoadingBooks(false);
     }
+  };
 
-    setBooksByCategory(results);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'An error occurred');
-  } finally {
-    setLoading(false);
-  }
-};
+  // Fetch carousel books for display categories (progressive loading)
+  const fetchCarouselBooks = async () => {
+    setLoadingBooks(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      
+      // Only fetch books for the display categories
+      const categoriesToFetch = categories.filter(cat => categoryIds.includes(cat.id));
+      
+      console.log('Fetching books for carousel categories:', categoriesToFetch.length);
+      const promises = categoriesToFetch.map(async (cat) => {
+        try {
+          // Use carousel endpoint with proper limit for better performance
+          const endpoint = `${apiUrl}/api/books/categorycarousel/${cat.id}`;
+          const response = await fetch(endpoint);
+          if (!response.ok) {
+            console.warn(`Failed to fetch books for category ${cat.name}: ${response.status}`);
+            return { id: cat.id, books: [] }; // Return empty array for failed category
+          }
+          const carouselBooks = await response.json() as Book[];
+          return { id: cat.id, books: carouselBooks };
+        } catch (error) {
+          console.warn(`Error fetching category ${cat.name}:`, error);
+          return { id: cat.id, books: [] }; // Return empty array for failed category
+        }
+      });
 
-  const handleAddToCart = (book: Book) => {
+      const resultsArray = await Promise.all(promises);
+      const results: Record<string, Book[]> = {};
+      for (const { id, books } of resultsArray) {
+        results[id] = books;
+      }
+
+      setBooksByCategory(results);
+      
+      // After books are loaded, start priority loading for first 8 images across all categories
+      loadPriorityImages(results);
+    } catch (err) {
+      console.error('Error fetching carousel books:', err);
+      // Don't set error state - just log the error and continue showing skeleton
+      console.warn('Failed to fetch books, showing skeleton placeholders');
+    } finally {
+      setLoadingBooks(false);
+    }
+  };
+
+  // Memoize expensive calculations to prevent unnecessary recalculations
+  const selectedBooks = useMemo(() => {
+    if (!selectedGenre) return [];
+    return booksByCategory[selectedGenre] || [];
+  }, [selectedGenre, booksByCategory]);
+
+  const categoriesToDisplay = useMemo(() => {
+    if (selectedGenre) {
+      // If a genre is selected, return empty array (we'll show tile view instead)
+      return [];
+    }
+    // Always show categories from env, even if API fails - this ensures skeleton always shows
+    const displayCategories = categories.length > 0 ? categories : fallbackCategories;
+    return displayCategories.filter(cat => categoryIds.includes(cat.id));
+  }, [selectedGenre, categories]);
+
+  // Memoize pagination calculations
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(selectedBooks.length / booksPerPage);
+    const startIndex = (currentPage - 1) * booksPerPage;
+    const paginatedBooks = selectedBooks.slice(startIndex, startIndex + booksPerPage);
+    
+    return {
+      totalPages,
+      startIndex,
+      paginatedBooks
+    };
+  }, [selectedBooks, currentPage, booksPerPage]);
+
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleAddToCart = useCallback((book: Book) => {
     if (!user) {
       // More elegant redirect - no confirm dialog needed
       window.location.href = `/login?redirect=${encodeURIComponent('/store')}&message=${encodeURIComponent('Please log in to add items to your cart')}`;
@@ -113,56 +325,27 @@ export default function BooksPage() {
     }
     addToCart(book);
     alert(`Added "${book.name}" to cart!`);
-  };
+  }, [user, addToCart]);
 
-  const handleGenreChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleGenreChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedGenre(event.target.value);
     setCurrentPage(1); // Reset to first page when genre changes
-  };
+  }, []);
 
-  // Get books for the selected genre with pagination
-  const getSelectedGenreBooks = () => {
-    if (!selectedGenre) return [];
-    return booksByCategory[selectedGenre] || [];
-  };
-
-  // Calculate pagination for selected genre
-  const selectedBooks = getSelectedGenreBooks();
-  const totalPages = Math.ceil(selectedBooks.length / booksPerPage);
-  const startIndex = (currentPage - 1) * booksPerPage;
-  const paginatedBooks = selectedBooks.slice(startIndex, startIndex + booksPerPage);
-
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
-  // Filter categories to display based on selected genre
-  const getCategoriesToDisplay = () => {
-    if (selectedGenre) {
-      // If a genre is selected, return empty array (we'll show tile view instead)
-      return [];
-    }
-    // If no genre selected, show the original categories from env
-    return categories.filter(cat => categoryIds.includes(cat.id));
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading books...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-600">Error: {error}</div>
-      </div>
-    );
-  }
+  // Don't show error states - always show skeleton/content
+  // if (error) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center">
+  //       <div className="text-red-600">Error: {error}</div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen bg-gw-white">
@@ -247,13 +430,20 @@ export default function BooksPage() {
               </p>
             </div>
 
-            {paginatedBooks.length === 0 ? (
+            {loadingBooks ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1 mb-4"></div>
+                  <p className="text-gray-600">Loading books...</p>
+                </div>
+              </div>
+            ) : paginationData.paginatedBooks.length === 0 ? (
               <p className="text-gray-500 text-center py-12">No books available in this genre.</p>
             ) : (
               <>
                 {/* Books Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
-                  {paginatedBooks.map((book) => (
+                  {paginationData.paginatedBooks.map((book: Book, index: number) => (
                     <div
                       key={book.id}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -261,32 +451,12 @@ export default function BooksPage() {
                     >
                       <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                        {book.imageUrl ? (
-                          <div className="relative w-full h-full">
-                            <Image
-                              src={book.imageUrl}
-                              alt={book.name}
-                              fill={true}
-                              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-gray-400 text-center">
-                            <svg
-                              className="w-8 h-8 mx-auto mb-2"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            <p className="text-xs">No Image</p>
-                          </div>
-                        )}
+                        <LazyBookImage 
+                          book={book} 
+                          priority={isBookPriority(book)}
+                          loadImage={loadImageOnDemand}
+                          loadedImages={loadedImages}
+                        />
                       </div>
 
                       <div className="p-3">
@@ -302,7 +472,7 @@ export default function BooksPage() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {paginationData.totalPages > 1 && (
                   <div className="flex justify-center items-center space-x-2">
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
@@ -317,14 +487,14 @@ export default function BooksPage() {
                     </button>
 
                     {/* Page numbers */}
-                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    {Array.from({ length: Math.min(paginationData.totalPages, 5) }, (_, i) => {
                       let pageNum;
-                      if (totalPages <= 5) {
+                      if (paginationData.totalPages <= 5) {
                         pageNum = i + 1;
                       } else if (currentPage <= 3) {
                         pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
+                      } else if (currentPage >= paginationData.totalPages - 2) {
+                        pageNum = paginationData.totalPages - 4 + i;
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
@@ -346,9 +516,9 @@ export default function BooksPage() {
 
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      disabled={currentPage === paginationData.totalPages}
                       className={`px-3 py-2 rounded-md text-sm font-medium ${
-                        currentPage === totalPages
+                        currentPage === paginationData.totalPages
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       }`}
@@ -362,16 +532,43 @@ export default function BooksPage() {
           </div>
         ) : (
           // Carousel view for no genre selected
-          getCategoriesToDisplay().map((cat) => {
-            const books = (booksByCategory[cat.id] || []).slice(0, 20);
-            return (
-              <div key={cat.id} className="mb-12">
-                <h2 className="text-2xl text-gw-green-1 font-calluna font-bold mb-4">{cat.name}</h2>
-                {books.length === 0 ? (
-                  <p className="text-gray-500">No books available in this category.</p>
-                ) : (
+          loadingBooks ? (
+            // Show skeleton carousels while loading
+            <div className="space-y-12">
+              {[1, 2, 3].map((skeleton) => (
+                <div key={skeleton} className="mb-12">
+                  <div className="h-8 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
                   <div className="flex overflow-x-auto space-x-4 pb-2">
-                    {books.map((book) => (
+                    {[1, 2, 3, 4, 5, 6].map((item) => (
+                      <div key={item} className="min-w-[200px] max-w-[200px] bg-white rounded-lg overflow-hidden animate-pulse">
+                        <div className="h-50 bg-gray-200"></div>
+                        <div className="p-4">
+                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            categoriesToDisplay.map((cat: {id: string, name: string}) => {
+              const books = (booksByCategory[cat.id] || []).slice(0, 20);
+              return (
+                <div key={cat.id} className="mb-12">
+                  <h2 className="text-2xl text-gw-green-1 font-calluna font-bold mb-4">{cat.name}</h2>
+                  {books.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-gray-500">
+                      <div className="text-center">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300 mb-2"></div>
+                        <p>Loading {cat.name.toLowerCase()}...</p>
+                      </div>
+                    </div>
+                  ) : (
+                  <div className="flex overflow-x-auto space-x-4 pb-2">
+                    {books.map((book, index) => (
                       <div
                         key={book.id}
                         className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -379,32 +576,12 @@ export default function BooksPage() {
                       >
                         <div className=" h-50 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                           <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                          {book.imageUrl ? (
-                            <div className="relative w-full h-full">
-                              <Image
-                                src={book.imageUrl}
-                                alt={book.name}
-                                fill={true}
-                                sizes="200px"
-                                className="object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="text-gray-400 text-center">
-                              <svg
-                                className="w-8 h-8 mx-auto mb-2"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <p className="text-sm">No Image</p>
-                            </div>
-                          )}
+                          <LazyBookImage 
+                            book={book} 
+                            priority={isBookPriority(book)}
+                            loadImage={loadImageOnDemand}
+                            loadedImages={loadedImages}
+                          />
                         </div>
 
                         <div className="p-3">
@@ -422,6 +599,7 @@ export default function BooksPage() {
               </div>
             );
           })
+          )
         )}
       </div>
 
@@ -451,6 +629,7 @@ export default function BooksPage() {
                         src={selectedBook.imageUrl}
                         alt={selectedBook.name}
                         fill={true}
+                        priority={true} // Modal images should load immediately
                         sizes="192px"
                         className="object-cover rounded-lg"
                       />

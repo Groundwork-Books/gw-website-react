@@ -5,6 +5,7 @@ export interface Book {
   price: number;
   currency: string;
   imageUrl?: string;
+  imageId?: string; // Added for on-demand image loading
   categoryId?: string;
 }
 

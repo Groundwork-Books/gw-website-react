@@ -22,16 +22,27 @@ function getCacheFile(categoryId) {
 }
 
 function readCache(categoryId, maxAgeDays = CACHE_EXPIRATION_DAYS) {
+  const startTime = Date.now();
   const file = getCacheFile(categoryId);
-  if (!fs.existsSync(file)) return null;
+  if (!fs.existsSync(file)) {
+    console.log(`Cache MISS: ${categoryId} (file doesn't exist) - ${Date.now() - startTime}ms`);
+    return null;
+  }
 
   const stats = fs.statSync(file);
   const ageDays = (Date.now() - stats.mtimeMs) / 1000 / 60 / 60 / 24;
-  if (ageDays > maxAgeDays) return null;
+  if (ageDays > maxAgeDays) {
+    console.log(`Cache MISS: ${categoryId} (expired, ${ageDays.toFixed(1)} days old) - ${Date.now() - startTime}ms`);
+    return null;
+  }
 
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf-8'));
+    const result = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    const totalTime = Date.now() - startTime;
+    console.log(`Cache HIT: ${categoryId} (${result.length} items, ${(fs.statSync(file).size / 1024).toFixed(1)}KB) - ${totalTime}ms`);
+    return result;
   } catch {
+    console.log(`Cache MISS: ${categoryId} (parse error) - ${Date.now() - startTime}ms`);
     return null;
   }
 }
@@ -48,12 +59,18 @@ async function sleep(ms) {
 }
 
 async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  const startTime = Date.now();
+  const urlPath = url.replace(SQUARE_BASE_URL, ''); // Remove base URL for cleaner logs
+  
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const attemptStart = Date.now();
     try {
       const response = await fetch(url, options);
+      const fetchTime = Date.now() - attemptStart;
+      
       if (response.status === 429) {
         const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
-        console.warn(`Rate limited. Retrying in ${delay}ms...`);
+        console.warn(`Rate limited on ${urlPath}. Retrying in ${delay}ms... (attempt ${attempt + 1})`);
         await sleep(delay);
         continue;
       }
@@ -61,14 +78,23 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
         const errorText = await response.text();
         throw new Error(`Square API error: ${response.status} - ${errorText}`);
       }
-      return await response.json();
+      
+      const parseStart = Date.now();
+      const result = await response.json();
+      const parseTime = Date.now() - parseStart;
+      const totalTime = Date.now() - startTime;
+      
+      console.log(`Square API: ${urlPath} | Fetch: ${fetchTime}ms | Parse: ${parseTime}ms | Total: ${totalTime}ms ${attempt > 0 ? `(${attempt + 1} attempts)` : ''}`);
+      return result;
     } catch (error) {
+      const fetchTime = Date.now() - attemptStart;
       if (attempt === retries) {
-        console.error('Max retries reached:', error);
+        const totalTime = Date.now() - startTime;
+        console.error(`Square API: ${urlPath} | Failed after ${totalTime}ms (${attempt + 1} attempts) | Last attempt: ${fetchTime}ms`);
         return null;
       }
       const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
-      console.warn(`Fetch failed, retrying in ${delay}ms...`);
+      console.warn(`Fetch failed on ${urlPath}, retrying in ${delay}ms... (attempt ${attempt + 1}, took ${fetchTime}ms)`);
       await sleep(delay);
     }
   }
@@ -84,8 +110,16 @@ let imageCache = fs.existsSync(IMAGE_CACHE_FILE)
 
 async function getImageCached(id) {
   if (!id) return null;
-  if (imageCache[id]) return imageCache[id];
+  
+  const startTime = Date.now();
+  
+  // Check in-memory cache first
+  if (imageCache[id]) {
+    console.log(`Image cache HIT: ${id} (memory) - ${Date.now() - startTime}ms`);
+    return imageCache[id];
+  }
 
+  console.log(`Image cache MISS: ${id} - fetching from Square API`);
   const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/object/${id}`, {
     method: 'GET',
     headers: {
@@ -97,10 +131,15 @@ async function getImageCached(id) {
 
   const url = data?.object?.image_data?.url || null;
   if (url) {
+    const writeStart = Date.now();
     imageCache[id] = url;
     fs.writeFileSync(IMAGE_CACHE_FILE, JSON.stringify(imageCache, null, 2));
+    const writeTime = Date.now() - writeStart;
+    console.log(`Image cached: ${id} (disk write: ${writeTime}ms)`);
   }
 
+  const totalTime = Date.now() - startTime;
+  console.log(`Image fetch complete: ${id} - ${totalTime}ms total`);
   return url;
 }
 
@@ -149,7 +188,15 @@ async function getBookById(bookId) {
   }
 }
 
-async function fetchCategoryBooksFromSquare(categoryId) {
+async function fetchCategoryBooksFromSquare(categoryId, includeImages = false, limit = null) {
+  const requestBody = { category_ids: [categoryId] };
+  
+  // Add limit to request if specified
+  if (limit && limit > 0) {
+    requestBody.limit = limit;
+    console.log(`Fetching category ${categoryId} with limit: ${limit}`);
+  }
+
   const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/search-catalog-items`, {
     method: 'POST',
     headers: {
@@ -157,7 +204,7 @@ async function fetchCategoryBooksFromSquare(categoryId) {
       'Square-Version': '2025-01-09',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ category_ids: [categoryId] }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!data?.items) return [];
@@ -174,34 +221,69 @@ async function fetchCategoryBooksFromSquare(categoryId) {
       price: price ? Number(price.amount) / 100 : 0,
       currency: price?.currency || 'USD',
       imageId: itemData.image_ids?.[0] || null,
-      imageUrl: null,
+      imageUrl: null, // Will be loaded separately if needed
     };
   });
 
-  // Batch fetch images to avoid rate limits
-  for (let i = 0; i < books.length; i += BATCH_SIZE) {
-    const batch = books.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map(async (book) => {
-      if (book.imageId) {
-        book.imageUrl = await getImageCached(book.imageId);
-      }
-    }));
+  // Only fetch images if explicitly requested (for carousel view)
+  if (includeImages && books.length > 0) {
+    const imageStart = Date.now();
+    console.log(`Batch fetching images for ${books.length} books (batch size: ${BATCH_SIZE})`);
+    
+    for (let i = 0; i < books.length; i += BATCH_SIZE) {
+      const batch = books.slice(i, i + BATCH_SIZE);
+      const batchStart = Date.now();
+      
+      await Promise.all(batch.map(async (book) => {
+        if (book.imageId) {
+          book.imageUrl = await getImageCached(book.imageId);
+        }
+      }));
+      
+      const batchTime = Date.now() - batchStart;
+      console.log(`Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(books.length/BATCH_SIZE)} complete: ${batch.length} images in ${batchTime}ms`);
+    }
+    
+    const totalImageTime = Date.now() - imageStart;
+    const imagesWithUrls = books.filter(b => b.imageUrl).length;
+    console.log(`All image fetching complete: ${imagesWithUrls}/${books.length} images loaded in ${totalImageTime}ms`);
+  } else if (books.length > 0) {
+    const limitInfo = limit ? ` (limited to ${limit})` : '';
+    console.log(`Returning ${books.length} books without images for fast response${limitInfo}`);
   }
 
   return books;
 }
 
-async function getBooksByCategory(categoryId, useCache = true) {
+async function getBooksByCategory(categoryId, useCache = true, includeImages = false, limit = null) {
+  const startTime = Date.now();
+  console.log(`Fetching books for category: ${categoryId} (useCache: ${useCache}, includeImages: ${includeImages}, limit: ${limit || 'none'})`);
+  
+  // Create cache key that includes image preference and limit
+  let cacheKey = includeImages ? `${categoryId}_with_images` : categoryId;
+  if (limit) {
+    cacheKey += `_limit_${limit}`;
+  }
+  
   if (useCache) {
-    const cached = readCache(categoryId);
+    const cached = readCache(cacheKey);
     if (cached) {
-      console.log(`Loaded category ${categoryId} from cache`);
+      console.log(`Category fetch complete: ${categoryId} - ${Date.now() - startTime}ms (from cache)`);
       return cached;
     }
   }
 
-  const books = await fetchCategoryBooksFromSquare(categoryId);
-  writeCache(categoryId, books);
+  console.log(`Cache miss - fetching category ${categoryId} from Square API`);
+  const fetchStart = Date.now();
+  const books = await fetchCategoryBooksFromSquare(categoryId, includeImages, limit);
+  const fetchTime = Date.now() - fetchStart;
+  
+  const writeStart = Date.now();
+  writeCache(cacheKey, books);
+  const writeTime = Date.now() - writeStart;
+  
+  const totalTime = Date.now() - startTime;
+  console.log(`Category fetch complete: ${categoryId} - ${totalTime}ms total (fetch: ${fetchTime}ms, cache write: ${writeTime}ms, ${books.length} books)`);
 
   return books;
 }
@@ -218,7 +300,11 @@ function buildCarouselBooks(books, limit = 20) {
 }
 
 async function getCarouselBooksByCategory(categoryId, limit = 20) {
-  const allBooks = await getBooksByCategory(categoryId);
+  // For carousels, fetch limited books with images for better performance
+  // Fetch slightly more than needed to account for books without images
+  const fetchLimit = Math.min(limit + 10, 50); // Fetch up 10 more or max 50
+
+  const allBooks = await getBooksByCategory(categoryId, true, true, fetchLimit); // useCache=true, includeImages=true, limit=fetchLimit
   return buildCarouselBooks(allBooks, limit);
 }
 
@@ -270,6 +356,17 @@ async function getBooks() {
 }
 
 async function getCategories() {
+  const startTime = Date.now();
+  
+  // Check cache first (categories change infrequently)
+  const CATEGORIES_CACHE_KEY = 'categories';
+  const cached = readCache(CATEGORIES_CACHE_KEY, 7); // Cache for 7 days instead of 5
+  if (cached) {
+    console.log(`Categories fetch complete: ${cached.length} categories - ${Date.now() - startTime}ms (from cache)`);
+    return cached;
+  }
+
+  console.log('Categories cache miss - fetching from Square API');
   const data = await fetchWithRetry(`${SQUARE_BASE_URL}/v2/catalog/list?types=CATEGORY`, {
     method: 'GET',
     headers: {
@@ -279,16 +376,25 @@ async function getCategories() {
     },
   });
 
-  if (!data?.objects) return [];
+  // Handle API failure gracefully
+  if (!data?.objects) {
+    console.error('Failed to fetch categories from Square API');
+    return [];
+  }
 
-  // Filter for category objects only and map to our format
+  // Map to our format (no need to filter since we specified types=CATEGORY)
   const categories = data.objects
-    .filter(obj => obj.type === 'CATEGORY')
     .map(obj => ({
       id: obj.id,
       name: obj.category_data?.name || 'Unnamed Category'
     }))
     .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+
+  // Cache the results
+  writeCache(CATEGORIES_CACHE_KEY, categories);
+  
+  const totalTime = Date.now() - startTime;
+  console.log(`Categories fetch complete: ${categories.length} categories - ${totalTime}ms (from API)`);
 
   return categories;
 }
