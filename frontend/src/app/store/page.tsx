@@ -324,7 +324,6 @@ export default function BooksPage() {
       return;
     }
     addToCart(book);
-    alert(`Added "${book.name}" to cart!`);
   }, [user, addToCart]);
 
   const handleGenreChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
