@@ -74,10 +74,9 @@ export default function Header() {
                     className="hover:text-gw-green-2 transition-colors flex items-center"
                     aria-label="Admin Dashboard"
                   >
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="11" cy="11" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M7 15V13C7 11.8954 7.89543 11 9 11H13C14.1046 11 15 11.8954 15 13V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="11" cy="8" r="2" stroke="currentColor" strokeWidth="2"/>
+                    <svg width="16" height="21" viewBox="0 0 16 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 21C1.45 21 0.979333 20.8043 0.588 20.413C0.196666 20.0217 0.000666667 19.5507 0 19V9C0 8.45 0.196 7.97933 0.588 7.588C0.98 7.19667 1.45067 7.00067 2 7H3V5C3 3.61667 3.48767 2.43767 4.463 1.463C5.43833 0.488334 6.61733 0.000667349 8 6.82594e-07C9.38267 -0.000665984 10.562 0.487001 11.538 1.463C12.514 2.439 13.0013 3.618 13 5V7H14C14.55 7 15.021 7.196 15.413 7.588C15.805 7.98 16.0007 8.45067 16 9V19C16 19.55 15.8043 20.021 15.413 20.413C15.0217 20.805 14.5507 21.0007 14 21H2ZM2 19H14V9H2V19ZM8 16C8.55 16 9.021 15.8043 9.413 15.413C9.805 15.0217 10.0007 14.5507 10 14C9.99933 13.4493 9.80367 12.9787 9.413 12.588C9.02233 12.1973 8.55133 12.0013 8 12C7.44867 11.9987 6.978 12.1947 6.588 12.588C6.198 12.9813 6.002 13.452 6 14C5.998 14.548 6.194 15.019 6.588 15.413C6.982 15.807 7.45267 16.0027 8 16ZM5 7H11V5C11 4.16667 10.7083 3.45833 10.125 2.875C9.54167 2.29167 8.83333 2 8 2C7.16667 2 6.45833 2.29167 5.875 2.875C5.29167 3.45833 5 4.16667 5 5V7Z"
+                      fill="currentColor"/>
                     </svg>
                   </Link>
                 )}
@@ -134,7 +133,7 @@ export default function Header() {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden hover:text-gw-green-2 transition-colors flex items-center self-center p-0 relative -top-0.5"
+              className="md:hidden hover:text-gw-green-2 transition-colors flex items-center self-center p-0 relative"
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6 block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +156,7 @@ export default function Header() {
           {/* Close button (X) */}
           <button
             onClick={() => setIsMenuOpen(false)}
-            className="absolute top-3.5 right-6 text-white hover:text-gw-green-2 transition-colors text-3xl focus:outline-none"
+            className="absolute top-4 right-6 text-white hover:text-gw-green-2 transition-colors text-3xl focus:outline-none"
             aria-label="Close menu"
             tabIndex={isMenuOpen ? 0 : -1}
           >
