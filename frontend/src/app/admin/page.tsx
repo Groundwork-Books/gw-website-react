@@ -46,8 +46,7 @@ export default function AdminPage() {
     setError('');
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/admin/recent-orders?limit=20`);
+      const response = await fetch(`/api/orders/admin/recent-orders?limit=20`);
       const data = await response.json();
       
       if (data.success) {
@@ -86,8 +85,7 @@ export default function AdminPage() {
     setError('');
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/admin/search-by-email/${encodeURIComponent(searchEmail)}`);
+      const response = await fetch(`/api/orders/admin/search-by-email/${encodeURIComponent(searchEmail)}`);
       const data = await response.json();
       
       if (data.success) {
@@ -105,8 +103,7 @@ export default function AdminPage() {
   const updateOrderStatus = async (orderId: string, status: 'PREPARED' | 'COMPLETED') => {
     try {
       setUpdatingOrderId(orderId); // Show loading state for specific order
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/admin/${orderId}/pickup-status`, {
+      const response = await fetch(`/api/orders/admin/${orderId}/pickup-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

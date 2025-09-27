@@ -7,13 +7,21 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
+import { 
+  getCategories, 
+  getBooksByCategory, 
+  getCarouselBooksByCategory,
+  loadImageForBook,
+  loadImagesForBooksBatch,
+  Category
+} from '@/lib/square';
 import Image from 'next/image';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 const categoryNames = (process.env.NEXT_PUBLIC_CATEGORY_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
 
-const fallbackCategories = categoryIds.map((id, i) => ({
+const fallbackCategories: Category[] = categoryIds.map((id, i) => ({
   id,
   name: categoryNames[i] || `Category ${i + 1}`,
 }));
@@ -154,12 +162,16 @@ export default function BooksPage() {
     setLoadingImages(prev => new Set(prev).add(imageId));
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/books/image/${imageId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.imageUrl) {
-          setLoadedImages(prev => ({ ...prev, [imageId]: data.imageUrl }));
+      // Find a book with this imageId and load its image using Square API
+      const allBooks: Book[] = [];
+      Object.values(booksByCategory).forEach(books => {
+        allBooks.push(...books.filter(book => book.imageId === imageId));
+      });
+      
+      if (allBooks.length > 0) {
+        const bookWithImage = await loadImageForBook(allBooks[0]);
+        if (bookWithImage.imageUrl) {
+          setLoadedImages(prev => ({ ...prev, [imageId]: bookWithImage.imageUrl! }));
         }
       }
     } catch (error) {
@@ -171,7 +183,7 @@ export default function BooksPage() {
         return newSet;
       });
     }
-  }, [loadedImages, loadingImages]);
+  }, [loadedImages, loadingImages, booksByCategory]);
 
   // Load priority images for the first 8 books across all categories
   const loadPriorityImages = useCallback(async (booksByCategory: Record<string, Book[]>) => {
@@ -182,41 +194,45 @@ export default function BooksPage() {
       allBooks.push(...books);
     });
     
-    // Get first 8 books that have imageId
-    const priorityBooks = allBooks.filter(book => book.imageId).slice(0, 8);
+    // Get first 8 books that have imageId and don't already have imageUrl
+    const priorityBooks = allBooks
+      .filter(book => book.imageId && !book.imageUrl)
+      .slice(0, 8);
     
     // Set priority book IDs
     setPriorityBookIds(new Set(priorityBooks.map(book => book.id)));
     
-    // Load their images in parallel
-    const imagePromises = priorityBooks.map(book => {
-      if (book.imageId && !loadedImages[book.imageId] && !loadingImages.has(book.imageId)) {
-        return loadImageOnDemand(book.imageId);
-      }
-      return Promise.resolve();
-    });
-    
-    await Promise.all(imagePromises);
-  }, [loadImageOnDemand, loadedImages, loadingImages]);
+    // Load their images in parallel using Square API
+    try {
+      const booksWithImages = await loadImagesForBooksBatch(priorityBooks);
+      
+      // Update loaded images state
+      const newLoadedImages: Record<string, string> = {};
+      booksWithImages.forEach(book => {
+        if (book.imageId && book.imageUrl) {
+          newLoadedImages[book.imageId] = book.imageUrl;
+        }
+      });
+      
+      setLoadedImages(prev => ({ ...prev, ...newLoadedImages }));
+    } catch (error) {
+      console.error('Failed to load priority images:', error);
+    }
+  }, []);
 
   const fetchCategories = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/books/categories`);
-      if (!response.ok) {
-        throw new Error(`Response ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
+      const data = await getCategories();
       // Only update categories if we got valid data, otherwise keep fallback categories
       if (data && Array.isArray(data) && data.length > 0) {
         setCategories(data);
       } else {
-        console.warn('No categories returned from API, using fallback categories');
+        console.warn('No categories returned from Square API, using fallback categories');
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
       // Don't set error state or override categories - just log the error and keep fallback categories
-      console.warn('Failed to fetch categories from API, using fallback categories');
+      console.warn('Failed to fetch categories from Square API, using fallback categories');
     }
   };
 
@@ -226,13 +242,8 @@ export default function BooksPage() {
     
     setLoadingBooks(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/books/category/${selectedGenre}`);
-      if (!response.ok) {
-        throw new Error(`Response ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
-      setBooksByCategory(prev => ({ ...prev, [selectedGenre]: data as Book[] }));
+      const data = await getBooksByCategory(selectedGenre, { includeImages: false });
+      setBooksByCategory(prev => ({ ...prev, [selectedGenre]: data }));
     } catch (err) {
       console.error('Error fetching genre books:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -245,22 +256,13 @@ export default function BooksPage() {
   const fetchCarouselBooks = async () => {
     setLoadingBooks(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      
       // Only fetch books for the display categories
       const categoriesToFetch = categories.filter(cat => categoryIds.includes(cat.id));
       
       console.log('Fetching books for carousel categories:', categoriesToFetch.length);
       const promises = categoriesToFetch.map(async (cat) => {
         try {
-          // Use carousel endpoint with proper limit for better performance
-          const endpoint = `${apiUrl}/api/books/categorycarousel/${cat.id}`;
-          const response = await fetch(endpoint);
-          if (!response.ok) {
-            console.warn(`Failed to fetch books for category ${cat.name}: ${response.status}`);
-            return { id: cat.id, books: [] }; // Return empty array for failed category
-          }
-          const carouselBooks = await response.json() as Book[];
+          const carouselBooks = await getCarouselBooksByCategory(cat.id, 20);
           return { id: cat.id, books: carouselBooks };
         } catch (error) {
           console.warn(`Error fetching category ${cat.name}:`, error);

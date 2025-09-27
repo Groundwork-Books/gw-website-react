@@ -47,8 +47,7 @@ export default function OrdersPage() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/customer/${encodeURIComponent(user?.email || '')}`);
+      const response = await fetch(`/api/orders/customer/${encodeURIComponent(user?.email || '')}`);
       const data = await response.json();
 
       if (data.success) {

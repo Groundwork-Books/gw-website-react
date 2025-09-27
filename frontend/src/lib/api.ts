@@ -1,5 +1,15 @@
 // Client-side API functions to fetch data from our Next.js API routes
 
+import { Book } from './types';
+
+interface PineconeResult {
+  id: string;
+  name?: string;
+  description?: string;
+  searchScore?: number;
+  searchSnippet?: string;
+}
+
 export interface InstagramPost {
   postUrl: string;
   altText: string;
@@ -17,9 +27,106 @@ export interface Event {
   active: boolean;
 }
 
+export interface SearchResult {
+  success: boolean;
+  query: string;
+  results: (Book & {
+    searchScore: number;
+    searchSnippet: string;
+  })[];
+  total: number;
+}
+
+// Search function for Pinecone-powered book search
+export async function searchBooks(query: string, limit = 10): Promise<SearchResult> {
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query, limit }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
+
+    const pineconeResults = await response.json();
+    
+    if (!pineconeResults.success) {
+      return {
+        success: false,
+        query,
+        results: [],
+        total: 0,
+      };
+    }
+
+    // Now fetch full book details using Square API for each result
+    const { getBookById } = await import('./square');
+    
+    const enrichedResults = await Promise.all(
+      pineconeResults.results.map(async (result: PineconeResult) => {
+        try {
+          if (result.id) {
+            const fullBook = await getBookById(result.id);
+            if (fullBook) {
+              return {
+                ...fullBook,
+                searchScore: result.searchScore || 0,
+                searchSnippet: result.searchSnippet || ''
+              };
+            }
+          }
+          
+          // Fallback to Pinecone data if Square API fails
+          return {
+            id: result.id,
+            name: result.name || 'Unknown Book',
+            description: result.description || 'No description available',
+            price: 0,
+            currency: 'USD',
+            searchScore: result.searchScore || 0,
+            searchSnippet: result.searchSnippet || ''
+          };
+        } catch (error) {
+          console.error(`Failed to enrich book ${result.id}:`, error);
+          // Return basic info from Pinecone if Square API fails
+          return {
+            id: result.id,
+            name: result.name || 'Unknown Book',
+            description: result.description || 'No description available',
+            price: 0,
+            currency: 'USD',
+            searchScore: result.searchScore || 0,
+            searchSnippet: result.searchSnippet || ''
+          };
+        }
+      })
+    );
+
+    return {
+      success: true,
+      query,
+      results: enrichedResults,
+      total: enrichedResults.length,
+    };
+
+  } catch (error) {
+    console.error('Error searching books:', error);
+    return {
+      success: false,
+      query,
+      results: [],
+      total: 0,
+    };
+  }
+}
+
 export async function getInstagramPosts(): Promise<InstagramPost[]> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/instagram`);
+    const response = await fetch('/api/instagram');
     if (!response.ok) {
       throw new Error('Failed to fetch Instagram posts');
     }
@@ -82,7 +189,7 @@ export async function getInstagramPosts(): Promise<InstagramPost[]> {
 
 export async function getEvents(): Promise<Event[]> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/events`);
+    const response = await fetch('/api/events');
     if (!response.ok) {
       throw new Error('Failed to fetch events');
     }

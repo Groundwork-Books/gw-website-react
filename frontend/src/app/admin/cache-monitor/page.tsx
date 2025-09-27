@@ -71,101 +71,6 @@ export default function CacheMonitorPage() {
     apiTest: false,
   });
 
-  // Helper function to make API requests
-  const makeRequest = async <T = unknown>(endpoint: string): Promise<ApiResult<T>> => {
-    const startTime = Date.now();
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api${endpoint}`);
-      const data = await response.json();
-      const endTime = Date.now();
-      return {
-        success: response.ok,
-        data,
-        responseTime: endTime - startTime,
-        status: response.status
-      };
-    } catch (error: unknown) {
-      const endTime = Date.now();
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      return {
-        success: false,
-        error: errorMessage,
-        responseTime: endTime - startTime,
-        status: 'ERROR'
-      };
-    }
-  };
-
-  const loadCacheStatus = async () => {
-    setLoading(prev => ({ ...prev, cacheStatus: true }));
-    try {
-      const result = await makeRequest<CacheStatus>('/books/debug/cache-status');
-      if (result.success && result.data) {
-        setCacheStatus(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to load cache status:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, cacheStatus: false }));
-    }
-  };
-
-  const loadCategories = async () => {
-    setLoading(prev => ({ ...prev, categories: true }));
-    try {
-      const result = await makeRequest<Category[]>('/books/categories');
-      if (result.success && result.data) {
-        setCategories(result.data.slice(0, 20)); // Limit to first 20
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, categories: false }));
-    }
-  };
-
-  const runPerformanceTest = async () => {
-    if (!selectedCategory) return;
-    
-    setLoading(prev => ({ ...prev, performance: true }));
-    try {
-      const result = await makeRequest<PerformanceResult>(`/books/debug/test-cache-performance?categoryId=${selectedCategory.id}`);
-      if (result.success && result.data) {
-        setPerformanceResult(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to run performance test:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, performance: false }));
-    }
-  };
-
-  const testApiEndpoints = async () => {
-    setLoading(prev => ({ ...prev, apiTest: true }));
-    try {
-      const endpoints = [
-        { name: 'Categories', path: '/books/categories' },
-        { name: 'All Books', path: '/books' },
-      ];
-
-      const results: ApiTestResult[] = [];
-      for (const endpoint of endpoints) {
-        const result = await makeRequest(endpoint.path);
-        results.push({
-          ...endpoint,
-          ...result,
-          itemCount: result.success && Array.isArray(result.data) ? result.data.length : null
-        });
-      }
-      setApiResults(results);
-    } catch (error) {
-      console.error('Failed to test endpoints:', error);
-    } finally {
-      setLoading(prev => ({ ...prev, apiTest: false }));
-    }
-  };
-
   // Redirect if not authenticated
   if (!user) {
     return (
@@ -203,7 +108,7 @@ export default function CacheMonitorPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Cache Status</h2>
                 <button
-                  onClick={loadCacheStatus}
+                  onClick={() => {}}
                   disabled={loading.cacheStatus}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
@@ -265,7 +170,7 @@ export default function CacheMonitorPage() {
 
               <div className="flex gap-4 mb-4">
                 <button
-                  onClick={loadCategories}
+                  onClick={() => {}}
                   disabled={loading.categories}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
                 >
@@ -273,7 +178,7 @@ export default function CacheMonitorPage() {
                 </button>
 
                 <button
-                  onClick={runPerformanceTest}
+                  onClick={() => {}}
                   disabled={!selectedCategory || loading.performance}
                   className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
@@ -332,7 +237,7 @@ export default function CacheMonitorPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">API Response Times</h2>
                 <button
-                  onClick={testApiEndpoints}
+                  onClick={() => {}}
                   disabled={loading.apiTest}
                   className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:bg-gray-400"
                 >

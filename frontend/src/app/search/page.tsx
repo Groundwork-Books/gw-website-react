@@ -9,10 +9,13 @@ import SearchComponent from '@/components/SearchComponent';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
+import { searchBooks } from '@/lib/api';
 import Image from 'next/image';
 
 interface SearchResult extends Book {
-  score?: number;
+  searchScore?: number;
+  searchSnippet?: string;
+  score?: number; // Keep for backward compatibility
 }
 
 interface SearchResponse {
@@ -59,25 +62,17 @@ function SearchPageContent() {
     setHasSearched(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: searchQuery,
-          limit: 30,
-          namespace: "default"
-        }),
-      });
-
-      const data: SearchResponse = await response.json();
+      const data = await searchBooks(searchQuery, 30);
 
       if (data.success) {
-        setResults(data.results);
+        // Convert searchScore to score for compatibility
+        const resultsWithScore = data.results.map(result => ({
+          ...result,
+          score: result.searchScore
+        }));
+        setResults(resultsWithScore);
       } else {
-        setError(data.error || 'Search failed');
+        setError('Search failed');
         setResults([]);
       }
     } catch (err) {

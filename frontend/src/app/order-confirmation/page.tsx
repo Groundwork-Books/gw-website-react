@@ -56,8 +56,7 @@ function OrderConfirmationContent() {
 
   const fetchOrderDetails = useCallback(async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/${orderId}`);
+      const response = await fetch(`/api/orders/${orderId}`);
       const data = await response.json();
       
       if (data.success) {
