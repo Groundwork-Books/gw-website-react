@@ -19,10 +19,10 @@ const getSquareHeaders = (includeContentType = true) => {
 // Search orders by customer email (for staff)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { email: string } }
+  { params }: { params: Promise<{ email: string }> }
 ) {
   try {
-    const { email } = params;
+    const { email } = await params;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
     

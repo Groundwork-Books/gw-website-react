@@ -19,10 +19,10 @@ const getSquareHeaders = (includeContentType = true) => {
 // Get orders for a customer using direct Square API
 export async function GET(
   request: NextRequest,
-  { params }: { params: { customerEmail: string } }
+  { params }: { params: Promise<{ customerEmail: string }> }
 ) {
   try {
-    const { customerEmail } = params;
+    const { customerEmail } = await params;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     

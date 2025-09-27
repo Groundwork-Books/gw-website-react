@@ -18,10 +18,10 @@ const getSquareHeaders = (includeContentType = true) => {
 // Update order pickup status (mark as picked up)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
     const body = await request.json();
     const { status, notes } = body; // status: 'COMPLETED' (picked up) or 'PREPARED' (ready)
     

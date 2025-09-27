@@ -19,10 +19,10 @@ const getSquareHeaders = (includeContentType = true) => {
 // Get order details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
     
     // Retrieve order using direct Square Orders API
     const orderResponse = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
@@ -56,10 +56,10 @@ export async function GET(
 // Update order fulfillment status (legacy endpoint - keeping for compatibility)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
     const body = await request.json();
     const { fulfillmentId, state } = body; // state: 'PREPARED' or 'COMPLETED'
     

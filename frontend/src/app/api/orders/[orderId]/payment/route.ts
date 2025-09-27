@@ -18,10 +18,10 @@ const getSquareHeaders = (includeContentType = true) => {
 // Process payment using Square Payments API
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
     const body = await request.json();
     const { sourceId, amount, customerInfo } = body;
 
