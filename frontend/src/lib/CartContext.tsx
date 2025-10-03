@@ -155,7 +155,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     console.log('🧹 clearCart called - current cart before clear:', cart);
     dispatch({ type: 'CLEAR_CART' });
     console.log('🧹 clearCart dispatched CLEAR_CART action');
-  }, []);
+  }, [cart]);
 
   const itemCount = useMemo(() => 
     cart.items.reduce((count, item) => count + item.quantity, 0), 

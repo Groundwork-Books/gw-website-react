@@ -4,7 +4,6 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import EventsGrid from '@/components/EventsGrid';
 console.log('EventsGrid component:', EventsGrid);
-import Link from 'next/link';
 import Image from 'next/image';
 
 export default function CommunityPage() {

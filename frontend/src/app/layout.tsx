@@ -4,7 +4,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
-//import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // Load Calluna font
 const calluna = localFont({
@@ -47,9 +48,10 @@ export default function RootLayout({
       <body
         className={`${calluna.variable} ${helvetica.variable} antialiased`}
       >
-        {/* <Analytics /> */}
         <AuthProvider>
           <CartProvider>
+            <SpeedInsights />
+            <Analytics />
 
             {children}
           </CartProvider>

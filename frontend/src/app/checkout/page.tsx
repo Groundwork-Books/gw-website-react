@@ -17,7 +17,7 @@ interface CustomerInfo {
 
 export default function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
-  const { cart, clearCart } = useCart();
+  const { cart } = useCart();
   const router = useRouter();
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -65,7 +65,7 @@ export default function CheckoutPage() {
     try {
 
       // Create Payment Link instead of processing payment directly
-      const response = await fetch('http://localhost:8080/api/orders/create-payment-link', {
+      const response = await fetch('/api/orders/create-payment-link', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

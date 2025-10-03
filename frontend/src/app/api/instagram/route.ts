@@ -1,6 +1,5 @@
-const express = require('express');
-const { google } = require('googleapis');
-const router = express.Router();
+import { NextResponse } from 'next/server';
+import { google } from 'googleapis';
 
 // Fallback data if sheets are unavailable
 const fallbackInstagramPosts = [
@@ -73,15 +72,21 @@ function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-// GET /api/instagram
-router.get('/', async (req, res) => {
+interface InstagramPost {
+  postUrl: string;
+  altText: string;
+  order: number;
+  active: boolean;
+}
+
+export async function GET() {
   try {
     const sheets = getGoogleSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
     if (!spreadsheetId) {
       console.warn('No Google Sheets ID provided, using fallback data');
-      return res.json(fallbackInstagramPosts);
+      return NextResponse.json(fallbackInstagramPosts);
     }
 
     const response = await sheets.spreadsheets.values.get({
@@ -93,25 +98,23 @@ router.get('/', async (req, res) => {
     
     if (!rows || rows.length === 0) {
       console.warn('No Instagram data found in sheets, using fallback');
-      return res.json(fallbackInstagramPosts);
+      return NextResponse.json(fallbackInstagramPosts);
     }
 
-    const posts = rows
-      .map((row, index) => ({
+    const posts: InstagramPost[] = rows
+      .map((row: string[], index: number) => ({
         postUrl: row[0] || '',
         altText: row[1] || `Instagram post ${index + 1}`,
         order: parseInt(row[2]) || index + 1,
         active: row[3]?.toUpperCase() === 'TRUE'
       }))
-      .filter(post => post.postUrl && post.active)
-      .sort((a, b) => a.order - b.order);
+      .filter((post: InstagramPost) => post.postUrl && post.active)
+      .sort((a: InstagramPost, b: InstagramPost) => a.order - b.order);
 
-    res.json(posts.length > 0 ? posts : fallbackInstagramPosts);
+    return NextResponse.json(posts.length > 0 ? posts : fallbackInstagramPosts);
 
   } catch (error) {
     console.error('Error fetching Instagram posts from sheets:', error);
-    res.json(fallbackInstagramPosts);
+    return NextResponse.json(fallbackInstagramPosts);
   }
-});
-
-module.exports = router;
+}

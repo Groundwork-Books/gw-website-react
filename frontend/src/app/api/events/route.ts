@@ -1,6 +1,5 @@
-const express = require('express');
-const { google } = require('googleapis');
-const router = express.Router();
+import { NextResponse } from 'next/server';
+import { google } from 'googleapis';
 
 // Fallback data if sheets are unavailable
 const fallbackEvents = [
@@ -26,7 +25,7 @@ const fallbackEvents = [
     eventName: 'Book Discussion Circle',
     date: '2025-02-25',
     description: 'Weekly book club featuring radical literature and community voices',
-    imageUrl: '/images/events/book-discussion.jpg',
+    imageUrl: '/images/events/discussion-circle.jpg',
     location: 'Community Space',
     link: 'https://eventbrite.com/book-discussion',
     active: true
@@ -52,15 +51,24 @@ function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-// GET /api/events
-router.get('/', async (req, res) => {
+interface Event {
+  eventName: string;
+  date: string;
+  description: string;
+  imageUrl: string;
+  location: string;
+  link: string;
+  active: boolean;
+}
+
+export async function GET() {
   try {
     const sheets = getGoogleSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
     if (!spreadsheetId) {
       console.warn('No Google Sheets ID provided, using fallback data');
-      return res.json(fallbackEvents);
+      return NextResponse.json(fallbackEvents);
     }
 
     const response = await sheets.spreadsheets.values.get({
@@ -72,11 +80,11 @@ router.get('/', async (req, res) => {
     
     if (!rows || rows.length === 0) {
       console.warn('No Events data found in sheets, using fallback');
-      return res.json(fallbackEvents);
+      return NextResponse.json(fallbackEvents);
     }
 
-    const events = rows
-      .map(row => ({
+    const events: Event[] = rows
+      .map((row: string[]) => ({
         eventName: row[0] || 'Unnamed Event',
         date: row[1] || '',
         description: row[2] || '',
@@ -85,14 +93,12 @@ router.get('/', async (req, res) => {
         link: row[5] || '#',
         active: row[6]?.toUpperCase() === 'TRUE'
       }))
-      .filter(event => event.eventName && event.active);
+      .filter((event: Event) => event.eventName && event.active);
 
-    res.json(events.length > 0 ? events : fallbackEvents);
+    return NextResponse.json(events.length > 0 ? events : fallbackEvents);
 
   } catch (error) {
     console.error('Error fetching events from sheets:', error);
-    res.json(fallbackEvents);
+    return NextResponse.json(fallbackEvents);
   }
-});
-
-module.exports = router;
+}

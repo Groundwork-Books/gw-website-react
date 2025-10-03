@@ -46,7 +46,7 @@ function OrderConfirmationContent() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusUpdating] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -56,8 +56,7 @@ function OrderConfirmationContent() {
 
   const fetchOrderDetails = useCallback(async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${apiUrl}/api/orders/${orderId}`);
+      const response = await fetch(`/api/orders/${orderId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -96,7 +95,7 @@ function OrderConfirmationContent() {
       // Initial fetch
       fetchOrderDetails();
     }
-  }, [orderId, user]);
+  }, [orderId, user, clearCart, fetchOrderDetails]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
