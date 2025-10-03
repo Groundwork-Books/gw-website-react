@@ -12,18 +12,14 @@ https://docs.google.com/spreadsheets/d/1S1Vw0w3CUGwjYVYNG60kUpBagEB7KXD4IfY6mLH6
 
 ```
 gw-website-react/
-├── frontend/          # Next.js React application (completely independent)
+├── frontend/          # Next.js React application 
 │   ├── src/
-│   ├── public/
+│   ├── public/ 
+            app/
+                api/ routes for our api
+
 │   ├── package.json
 │   └── .env           # Frontend environment variables
-└── backend/           # Express.js API server (completely independent)
-    ├── src/
-    │   ├── routes/    # API route handlers
-    │   ├── lib/       # Utilities (Square integration)
-    │   └── server.js  # Express server setup
-    ├── package.json
-    └── .env           # Backend environment variables
 ```
 
 ## Quick Start
@@ -34,10 +30,6 @@ gw-website-react/
 
 Each app has its own dependencies:
 ```bash
-# Backend
-cd backend
-npm install
-
 # Frontend  
 cd frontend
 npm install
@@ -52,20 +44,10 @@ stivo.tailwind-fold  #this one is up to user preference
 ### 2. Environment Setup
 Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
 
-**Backend** (`backend/.env`)  
 **Frontend** (`frontend/.env`)  
 
 
 ### 3. Development
-Run each app independently:
-
-**Backend:**
-```bash
-cd backend
-npm run dev  # Runs on port 8080
-```
-
-**Frontend:**
 ```bash
 cd frontend  
 npm run dev  # Runs on port 3000 (or next available)
@@ -85,9 +67,8 @@ Make sure to add your email to your commits so that Vercel doesn't freak out. It
 
 ### 5. Current Deployment
 
-Regarding the current deployment. The frontend is deployed via [Vercel](https://vercel.com/groundwork-books/gw-website-react-frontend) and the backend is deployed via [Render](https://dashboard.render.com/) (login via GW email for both).   
+Regarding the current deployment. The frontend is deployed via [Vercel](https://vercel.com/groundwork-books/gw-website-react-frontend) (login via GW email for both).   
 - Vercel autodeploys main if the last commit was done by the sole allowed user (which is currently Maxim but you can change it in the app).   
-- For Render, you have to manually deploy and the `NEXT_PUBLIC_API_URL` should not contain the port number (idk why, but it doesn't work if you do.)
 ## Key resources:
 
 - The figma (frontend mockup) is available [here](https://www.figma.com/design/Al34xSygT7JdXAEx5f4dCN/Groundworks-Website-Redesign---Adelina?node-id=1242-591&t=MRPcgBKGXxqGE7XO-1)
@@ -107,7 +88,6 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 ## Tech Stack
 - **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS - **Hosted via Vercel**
-- **Backend:** Node.js, Express.js, Square API, Pinecone API - **Hosted via Render**
 - **Cart:** React Context + localStorage
 - **Architecture:** Separated frontend/backend with API communication
 
