@@ -5,32 +5,38 @@ NOTICE: the repo is now public, so make sure you don't fuck up the git ignore an
 **Google Form For Events and Instagram:**
 https://docs.google.com/spreadsheets/d/1S1Vw0w3CUGwjYVYNG60kUpBagEB7KXD4IfY6mLH6PEI/edit?usp=sharing
 
-
-**Two completely independent applications**
-
 ## Project Structure
+
+**Single Next.js Full-Stack Application**
 
 ```
 gw-website-react/
-├── frontend/          # Next.js React application 
+├── frontend/          # Next.js full-stack application 
 │   ├── src/
-│   ├── public/ 
-            app/
-                api/ routes for our api
-
+│   │   ├── app/
+│   │   │   ├── api/           # Backend API routes
+│   │   │   │   ├── events/    # Events management
+│   │   │   │   ├── instagram/ # Instagram integration
+│   │   │   │   ├── orders/    # Order processing & management
+│   │   │   │   ├── search/    # Book search functionality
+│   │   │   │   └── square/    # Square Point of Sale (POS) integration
+│   │   │   ├── (pages)/       # Frontend pages
+│   │   │   └── layout.tsx
+│   │   ├── components/        # Reusable React components
+│   │   └── lib/              # Utilities, contexts, types
+│   ├── public/               # Static assets
 │   ├── package.json
-│   └── .env           # Frontend environment variables
+│   └── .env                  # Environment variables
+└── package.json              # Root workspace config
 ```
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
-
-
-Each app has its own dependencies:
+Install dependencies for the Next.js full-stack application:
 ```bash
-# Frontend  
+# Frontend & API
 cd frontend
 npm install
 ```
@@ -44,17 +50,22 @@ stivo.tailwind-fold  #this one is up to user preference
 ### 2. Environment Setup
 Configure environment variables. They are available in the Slack or upon request from mpodgore@ucsd.edu or lmohler@ucsd.edu:
 
-**Frontend** (`frontend/.env`)  
+**Frontend & API** (`frontend/.env`)  
 
 
 ### 3. Development
+Start the development server (includes both frontend and API):
 ```bash
 cd frontend  
 npm run dev  # Runs on port 3000 (or next available)
 ```
 
-### 4. Before commiting
-Run this to test that the frontend can be built   
+The application includes:
+- **Frontend pages** at `http://localhost:3000/`
+- **API endpoints** at `http://localhost:3000/api/*`
+
+### 4. Before committing
+Run this to test that the full-stack application can be built   
 *(because it gets autodeployed on vercel)*
 
 ```bash
@@ -67,8 +78,9 @@ Make sure to add your email to your commits so that Vercel doesn't freak out. It
 
 ### 5. Current Deployment
 
-Regarding the current deployment. The frontend is deployed via [Vercel](https://vercel.com/groundwork-books/gw-website-react-frontend) (login via GW email for both).   
-- Vercel autodeploys main if the last commit was done by the sole allowed user (which is currently Maxim but you can change it in the app).   
+The full-stack application is deployed via [Vercel](https://vercel.com/groundwork-books/gw-website-react-frontend) (login via GW email).   
+- Vercel autodeploys main if the last commit was done by the sole allowed user (which is currently Maxim but you can change it in the app)
+- Both frontend and API routes are deployed together as a single Next.js application   
 ## Key resources:
 
 - The figma (frontend mockup) is available [here](https://www.figma.com/design/Al34xSygT7JdXAEx5f4dCN/Groundworks-Website-Redesign---Adelina?node-id=1242-591&t=MRPcgBKGXxqGE7XO-1)
@@ -87,9 +99,12 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 
 ## Tech Stack
-- **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS - **Hosted via Vercel**
+- **Frontend:** React, Next.JS 15.4.6, Firebase Auth, TailwindCSS
+- **Backend:** Next.js API Routes (serverless functions)
+- **Integrations:** Square POS API, Instagram Basic Display API, Google Sheets API
 - **Cart:** React Context + localStorage
-- **Architecture:** Separated frontend/backend with API communication
+- **Hosting:** Vercel (full-stack deployment)
+- **Architecture:** Next.js full-stack application with integrated API routes
 
 
 **Other useful information about the repo:**
@@ -97,6 +112,25 @@ All changes should be developed on a feature branch (new branch specific to the 
 - Each page is in a folder of it's name aside from home.
 - tailwind color stuff is set in globals.css
 - if you get stuck look at the next.js and react documentation
+
+## API Routes
+
+The backend functionality is implemented using Next.js API routes located in `frontend/src/app/api/`:
+
+- **`/api/events`** - Events management and retrieval
+- **`/api/instagram`** - Instagram feed integration
+- **`/api/orders`** - Order processing, payment handling, and admin management
+  - `/api/orders/create` - Create new orders
+  - `/api/orders/[orderId]` - Order details and updates
+  - `/api/orders/admin/*` - Admin order management
+  - `/api/orders/webhook/*` - Payment webhooks
+- **`/api/search`** - Book search functionality with text and status endpoints
+- **`/api/square`** - Square POS integration
+  - `/api/square/books` - Book inventory management
+  - `/api/square/categories` - Category management
+  - `/api/square/images` - Image handling
+
+All API routes are serverless functions that deploy automatically with the frontend.
 
 ## Features
 - Email/password login/signup (Firebase Auth)
@@ -110,8 +144,10 @@ All changes should be developed on a feature branch (new branch specific to the 
 
 
 ## Notes
-- **Never expose your Square Access Token in frontend code!**
+- **Never expose your Square Access Token in frontend code!** Use environment variables and API routes.
 - All inventory/pricing managed in Square Dashboard
+- API routes handle server-side logic and external integrations
+- No separate backend server needed - everything runs on Vercel's serverless platform
 - No Firestore or Firebase Cloud Functions used 
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
