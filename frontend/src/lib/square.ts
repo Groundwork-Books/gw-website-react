@@ -11,7 +11,6 @@ export interface Category {
 }
 
 export interface SearchOptions {
-  includeImages?: boolean;
   limit?: number;
 }
 
@@ -20,6 +19,7 @@ export interface CategoryResponse {
   metadata: {
     totalBooks: number;
     imagesLoaded: number;
+    booksWithImageIds?: number;
   };
 }
 
@@ -91,12 +91,11 @@ export async function getBooksByCategory(
   categoryId: string, 
   options: SearchOptions = {}
 ): Promise<CategoryResponse> {
-  const { includeImages = false, limit } = options;
+  const { limit } = options;
   
   try {
-    // Build query parameters
+    // Build query parameters - no longer requesting images by default
     const params = new URLSearchParams();
-    if (includeImages) params.append('includeImages', 'true');
     if (limit) params.append('limit', limit.toString());
     
     const url = `/api/square/category/${categoryId}${params.toString() ? `?${params.toString()}` : ''}`;
@@ -109,7 +108,8 @@ export async function getBooksByCategory(
         books: response,
         metadata: {
           totalBooks: response.length,
-          imagesLoaded: response.filter((book: Book) => book.imageUrl).length
+          imagesLoaded: 0,
+          booksWithImageIds: response.filter((book: Book) => book.imageId).length
         }
       };
     }
@@ -118,9 +118,8 @@ export async function getBooksByCategory(
       books: [],
       metadata: {
         totalBooks: 0,
-        priorityImagesLoaded: 0,
-        lazyImagesAvailable: 0,
-        lazyLoadingSupported: false
+        imagesLoaded: 0,
+        booksWithImageIds: 0
       }
     };
   } catch (error) {
@@ -129,7 +128,8 @@ export async function getBooksByCategory(
       books: [],
       metadata: {
         totalBooks: 0,
-        imagesLoaded: 0
+        imagesLoaded: 0,
+        booksWithImageIds: 0
       }
     };
   }
@@ -143,22 +143,20 @@ export async function getCarouselBooksByCategory(
   const fetchLimit = Math.min(limit + 10, 50);
   
   const response = await getBooksByCategory(categoryId, { 
-    includeImages: true, 
-    limit: fetchLimit,
-    // Load images for all carousel items
+    limit: fetchLimit
   });
   
   const allBooks = response.books;
   
-  // Priority: books with images first, then others
-  const withImages = allBooks.filter((book: Book) => book.imageUrl);
-  const withoutImages = allBooks.filter((book: Book) => !book.imageUrl);
+  // Priority: books with imageIds first (even without loaded imageUrls), then others
+  const withImageIds = allBooks.filter((book: Book) => book.imageId);
+  const withoutImageIds = allBooks.filter((book: Book) => !book.imageId);
 
-  if (withImages.length >= limit) {
-    return withImages.slice(0, limit);
+  if (withImageIds.length >= limit) {
+    return withImageIds.slice(0, limit);
   }
 
-  return [...withImages, ...withoutImages.slice(0, limit - withImages.length)];
+  return [...withImageIds, ...withoutImageIds.slice(0, limit - withImageIds.length)];
 }
 
 
@@ -264,85 +262,150 @@ export async function loadImagesForBooksBatchOptimized(books: Book[]): Promise<B
   });
 }
 
-// OPTIMIZATION: Parallel category loading with progressive updates
-export async function loadCategoriesInParallel(
-  categoryIds: string[],
-  options: {
-    limit?: number;
-    includeImages?: boolean;
-    onCategoryLoaded?: (categoryId: string, books: Book[]) => void;
-  } = {}
+// NEW: Load images for all books in categories
+export async function loadImagesForCategories(
+  categoryBooks: Record<string, Book[]>
 ): Promise<Record<string, Book[]>> {
-  const { limit = 20, includeImages = true, onCategoryLoaded } = options;
-  
-  console.log(`Loading ${categoryIds.length} categories in parallel...`);
+  console.log('Loading images for all category books...');
   const startTime = Date.now();
   
-  // Create promises for all categories
-  const categoryPromises = categoryIds.map(async (categoryId) => {
-    try {
-      const response = await getBooksByCategory(categoryId, { 
-        includeImages, 
-        limit 
-      });
-      
-      // Progressive update callback - allows UI to update as each category loads
-      if (onCategoryLoaded) {
-        onCategoryLoaded(categoryId, response.books);
+  // Collect all image IDs from all categories
+  const allBooks = Object.values(categoryBooks).flat();
+  const booksWithImageIds = allBooks.filter(book => book.imageId && !book.imageUrl);
+  
+  if (booksWithImageIds.length === 0) {
+    console.log('No images to load');
+    return categoryBooks;
+  }
+  
+  console.log(`Loading ${booksWithImageIds.length} images in batch...`);
+  
+  // Load all images in one batch call
+  const imageIds = booksWithImageIds.map(book => book.imageId!);
+  const imageMap = await getImageUrlsBatch(imageIds);
+  
+  // Apply images to all categories
+  const updatedCategories: Record<string, Book[]> = {};
+  
+  for (const [categoryId, books] of Object.entries(categoryBooks)) {
+    updatedCategories[categoryId] = books.map(book => {
+      if (book.imageId && imageMap[book.imageId] !== undefined) {
+        return {
+          ...book,
+          imageUrl: imageMap[book.imageId] || undefined
+        };
       }
-      
-      return { categoryId, books: response.books, success: true };
-    } catch (error) {
-      console.warn(`Failed to load category ${categoryId}:`, error);
-      return { categoryId, books: [], success: false };
-    }
-  });
-  
-  // Wait for all categories to complete
-  const results = await Promise.all(categoryPromises);
-  
-  // Convert to record format
-  const categoryBooks: Record<string, Book[]> = {};
-  results.forEach(({ categoryId, books }) => {
-    categoryBooks[categoryId] = books;
-  });
+      return book;
+    });
+  }
   
   const totalTime = Date.now() - startTime;
-  const successCount = results.filter(r => r.success).length;
-  console.log(`Parallel loading complete: ${successCount}/${categoryIds.length} categories loaded in ${totalTime}ms`);
+  const imagesLoaded = Object.keys(imageMap).filter(id => imageMap[id]).length;
+  console.log(`Batch image loading complete: ${imagesLoaded}/${imageIds.length} images loaded in ${totalTime}ms`);
   
-  return categoryBooks;
+  return updatedCategories;
 }
 
-// OPTIMIZATION: Fast initial load strategy with progressive loading
+// NEW: Ultra-fast batch loading of all categories at once
+export async function loadAllCategoriesBatch(
+  categoryIds: string[],
+  limit = 20
+): Promise<Record<string, Book[]>> {
+  if (categoryIds.length === 0) return {};
+
+  console.log(`Ultra-fast batch loading ${categoryIds.length} categories...`);
+  const startTime = Date.now();
+
+  try {
+    const response = await fetch('/api/square/categories/books', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ categoryIds, limit }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to batch load categories: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform response to simple format
+    const categoryBooks: Record<string, Book[]> = {};
+    if (data.categories) {
+      Object.keys(data.categories).forEach(categoryId => {
+        categoryBooks[categoryId] = data.categories[categoryId].books || [];
+      });
+    }
+
+    const totalTime = Date.now() - startTime;
+    const totalBooks = Object.values(categoryBooks).flat().length;
+    console.log(`Ultra-fast batch loading complete: ${totalBooks} books in ${totalTime}ms`);
+
+    return categoryBooks;
+  } catch (error) {
+    console.error('Error in ultra-fast batch loading:', error);
+    
+    // Fallback to individual category calls if batch fails
+    console.log('Falling back to individual category loading...');
+    const fallbackStartTime = Date.now();
+    
+    try {
+      const categoryPromises = categoryIds.map(async (categoryId) => {
+        try {
+          const response = await getBooksByCategory(categoryId, { limit });
+          return { categoryId, books: response.books };
+        } catch (err) {
+          console.warn(`Failed to load category ${categoryId}:`, err);
+          return { categoryId, books: [] };
+        }
+      });
+      
+      const results = await Promise.all(categoryPromises);
+      const fallbackBooks: Record<string, Book[]> = {};
+      results.forEach(({ categoryId, books }) => {
+        fallbackBooks[categoryId] = books;
+      });
+      
+      const fallbackTime = Date.now() - fallbackStartTime;
+      console.log(`Fallback loading complete in ${fallbackTime}ms`);
+      
+      return fallbackBooks;
+    } catch (fallbackError) {
+      console.error('Both ultra-fast and fallback loading failed:', fallbackError);
+      throw fallbackError;
+    }
+  }
+}
+
+// OPTIMIZATION: Ultra-fast initial load strategy
 export async function getInitialStoreData(
   categoryIds: string[]
 ): Promise<{
   categories: Category[];
   initialBooks: Record<string, Book[]>;
 }> {
-  console.log('Starting optimized store data load...');
+  console.log('Starting ultra-fast store data load...');
   const startTime = Date.now();
   
   try {
-    // Load categories and initial books in parallel
+    // Load categories and initial books in parallel using ultra-fast batch API
     const [categories, initialBooks] = await Promise.all([
       getCategories(),
-      loadCategoriesInParallel(categoryIds, {
-        limit: 20, // Load reasonable amount initially
-        includeImages: true
-      })
+      loadAllCategoriesBatch(categoryIds, 20) // Ultra-fast batch loading
     ]);
     
     const totalTime = Date.now() - startTime;
-    console.log(`Initial store data loaded in ${totalTime}ms`);
+    const totalBooks = Object.values(initialBooks).flat().length;
+    console.log(`Ultra-fast store data loaded: ${totalBooks} books in ${totalTime}ms (images will be loaded separately)`);
     
     return {
       categories: categories.length > 0 ? categories : [], // Fallback handled in component
       initialBooks
     };
   } catch (error) {
-    console.error('Failed to load initial store data:', error);
+    console.error('Failed to load store data with ultra-fast approach:', error);
     throw error; // Let component handle fallback
   }
 }

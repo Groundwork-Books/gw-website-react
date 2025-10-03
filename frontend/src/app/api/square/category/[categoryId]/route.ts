@@ -102,7 +102,8 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
   return null;
 }
 
-// GET /api/square/category/[categoryId]?includeImages=false&limit=20&priorityCount=10
+// GET /api/square/category/[categoryId]?limit=20
+// Note: This route no longer loads images by default. Images should be loaded separately via batch API.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ categoryId: string }> }
@@ -110,9 +111,7 @@ export async function GET(
   try {
     const { categoryId } = await params;
     const { searchParams } = new URL(request.url);
-    const includeImages = searchParams.get('includeImages') === 'true';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
-    const priorityCount = searchParams.get('priorityCount') ? parseInt(searchParams.get('priorityCount')!) : 10;
     
     if (!categoryId) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
@@ -150,67 +149,19 @@ export async function GET(
       };
     });
 
-    // If images are requested, load them using batch API
-    if (includeImages && books.length > 0) {
-      const booksWithImageIds = books.filter((book: ProcessedBook) => book.imageId);
-      
-      // Load images for the requested number of books
-      const booksToLoad = booksWithImageIds.slice(0, Math.min(priorityCount, booksWithImageIds.length));
-      
-      // Load images using batch image API
-      if (booksToLoad.length > 0) {
-        
-        try {
-          const imageIds = booksToLoad.map(book => book.imageId).filter(Boolean) as string[];
-          
-          // Use our batch image API route
-          const imageResponse = await fetch(`${request.nextUrl.origin}/api/square/images/batch`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ imageIds }),
-          });
+    // Sort books to put those with imageIds first (for better UX even without images loaded)
+    const booksWithImages = books.filter((book: ProcessedBook) => book.imageId);
+    const booksWithoutImages = books.filter((book: ProcessedBook) => !book.imageId);
+    const sortedBooks = [...booksWithImages, ...booksWithoutImages];
 
-          if (imageResponse.ok) {
-            const imageData = await imageResponse.json();
-            const imageMap: Record<string, string> = {};
-            
-            imageData.images.forEach((image: { id: string; imageUrl?: string }) => {
-              if (image.imageUrl) {
-                imageMap[image.id] = image.imageUrl;
-              }
-            });
-
-            // Apply the image URLs to books
-            booksToLoad.forEach(book => {
-              if (book.imageId && imageMap[book.imageId]) {
-                book.imageUrl = imageMap[book.imageId];
-              }
-            });
-          } else {
-            console.error(`Batch image API failed with status ${imageResponse.status}`);
-          }
-        } catch (error) {
-          console.error('Batch image loading failed:', error);
-        }
-      }
-      
-      // Return books with loaded images
-      const totalImagesLoaded = books.filter((book: ProcessedBook) => book.imageUrl).length;
-      
-      const response = {
-        books,
-        metadata: {
-          totalBooks: books.length,
-          imagesLoaded: totalImagesLoaded
-        }
-      };
-      
-      return NextResponse.json(response);
-    }
-
-    return NextResponse.json({ books, metadata: { totalBooks: books.length, imagesLoaded: 0 } });
+    return NextResponse.json({ 
+      books: sortedBooks, 
+      metadata: { 
+        totalBooks: sortedBooks.length, 
+        imagesLoaded: 0,
+        booksWithImageIds: booksWithImages.length 
+      } 
+    });
   } catch (error) {
     console.error(`Error fetching books for category:`, error);
     return NextResponse.json({ error: 'Failed to fetch books' }, { status: 500 });

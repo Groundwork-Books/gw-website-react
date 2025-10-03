@@ -10,8 +10,8 @@ import { Book } from '@/lib/types';
 import { 
   getCategories, 
   getBooksByCategory, 
-  loadCategoriesInParallel,
   getInitialStoreData,
+  loadImagesForCategories,
   Category
 } from '@/lib/square';
 import Image from 'next/image';
@@ -70,8 +70,16 @@ export default function BooksPage() {
     
     setLoadingBooks(true);
     try {
-      const response = await getBooksByCategory(selectedGenre, { includeImages: false });
+      const response = await getBooksByCategory(selectedGenre);
       setBooksByCategory(prev => ({ ...prev, [selectedGenre]: response.books }));
+      
+      // Immediately load images for the selected genre books
+      try {
+        const booksWithImages = await loadImagesForCategories({ [selectedGenre]: response.books });
+        setBooksByCategory(prev => ({ ...prev, ...booksWithImages }));
+      } catch (imageError) {
+        console.warn('Failed to load images for selected genre:', imageError);
+      }
     } catch (err) {
       console.error('Error fetching genre books:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -95,11 +103,20 @@ export default function BooksPage() {
           setCategories(apiCategories);
         }
         
-        // Update books with initial data
+        // Update books with initial data (no images yet)
         setBooksByCategory(initialBooks);
         setLoadingBooks(false);
         
-        console.log('Initial store data loaded successfully');
+        console.log('Initial store data loaded successfully, now loading images...');
+        
+        // Immediately load images for all books
+        try {
+          const booksWithImages = await loadImagesForCategories(initialBooks);
+          setBooksByCategory(booksWithImages);
+          console.log('Images loaded successfully');
+        } catch (imageError) {
+          console.warn('Failed to load images, books will display without images:', imageError);
+        }
         
       } catch (error) {
         console.error('Failed to load store data:', error);
