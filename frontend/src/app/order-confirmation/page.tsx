@@ -46,7 +46,7 @@ function OrderConfirmationContent() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusUpdating] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -95,7 +95,7 @@ function OrderConfirmationContent() {
       // Initial fetch
       fetchOrderDetails();
     }
-  }, [orderId, user]);
+  }, [orderId, user, clearCart, fetchOrderDetails]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

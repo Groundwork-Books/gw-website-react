@@ -17,7 +17,7 @@ interface CustomerInfo {
 
 export default function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
-  const { cart, clearCart } = useCart();
+  const { cart } = useCart();
   const router = useRouter();
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
