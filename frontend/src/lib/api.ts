@@ -2,6 +2,8 @@
 
 import { Book } from './types';
 
+type EnrichedBookResult = Book & { searchScore: number; searchSnippet: string };
+
 interface PineconeResult {
   id: string;
   name?: string;
@@ -63,48 +65,99 @@ export async function searchBooks(query: string, limit = 10): Promise<SearchResu
       };
     }
 
-    // Now fetch full book details using Square API for each result
-    const { getBookById } = await import('./square');
-    
-    const enrichedResults = await Promise.all(
-      pineconeResults.results.map(async (result: PineconeResult) => {
-        try {
-          if (result.id) {
-            const fullBook = await getBookById(result.id);
-            if (fullBook) {
+    // Now fetch full book details using Square API batch endpoint
+    const bookIds = pineconeResults.results
+      .map((result: PineconeResult) => result.id)
+      .filter((id: string) => id); // Remove any undefined IDs
+
+    console.log(`Fetching batch book details for ${bookIds.length} books`);
+
+    let enrichedResults: EnrichedBookResult[] = [];
+
+    if (bookIds.length > 0) {
+      try {
+        const batchResponse = await fetch('/api/square/books/batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ bookIds }),
+        });
+
+        if (batchResponse.ok) {
+          const batchData = await batchResponse.json();
+          const bookMap = new Map(batchData.books.map((book: Book) => [book.id, book]));
+
+          // Merge Square API data with Pinecone search results
+          enrichedResults = pineconeResults.results.map((result: PineconeResult) => {
+            const squareBook = bookMap.get(result.id);
+            
+            if (squareBook) {
+              // Use Square API data with search context
               return {
-                ...fullBook,
+                ...squareBook,
+                searchScore: result.searchScore || 0,
+                searchSnippet: result.searchSnippet || ''
+              };
+            } else {
+              // Fallback to Pinecone data if book not found in Square
+              return {
+                id: result.id,
+                name: result.name || 'Unknown Book',
+                description: result.description || 'No description available',
+                price: 0,
+                currency: 'USD',
                 searchScore: result.searchScore || 0,
                 searchSnippet: result.searchSnippet || ''
               };
             }
+          });
+
+          console.log(`Successfully enriched ${batchData.books.length} out of ${bookIds.length} books`);
+
+          // Load images for the enriched results in batch (optimized)
+          if (enrichedResults.length > 0) {
+            try {
+              const { loadImagesForBooksBatchOptimized } = await import('./square');
+              const booksWithImages = await loadImagesForBooksBatchOptimized(enrichedResults);
+              
+              // Preserve the search metadata while updating with image URLs
+              enrichedResults = enrichedResults.map(result => {
+                const bookWithImage = booksWithImages.find(book => book.id === result.id);
+                return {
+                  ...result,
+                  imageUrl: bookWithImage?.imageUrl || result.imageUrl
+                };
+              });
+              
+              console.log(`Loaded images for search results using optimized batch loading`);
+            } catch (imageError) {
+              console.warn('Failed to load images for search results:', imageError);
+              // Continue without images if image loading fails
+            }
           }
-          
-          // Fallback to Pinecone data if Square API fails
-          return {
-            id: result.id,
-            name: result.name || 'Unknown Book',
-            description: result.description || 'No description available',
-            price: 0,
-            currency: 'USD',
-            searchScore: result.searchScore || 0,
-            searchSnippet: result.searchSnippet || ''
-          };
-        } catch (error) {
-          console.error(`Failed to enrich book ${result.id}:`, error);
-          // Return basic info from Pinecone if Square API fails
-          return {
-            id: result.id,
-            name: result.name || 'Unknown Book',
-            description: result.description || 'No description available',
-            price: 0,
-            currency: 'USD',
-            searchScore: result.searchScore || 0,
-            searchSnippet: result.searchSnippet || ''
-          };
+        } else {
+          console.error('Batch book fetch failed, falling back to Pinecone data');
+          throw new Error('Batch fetch failed');
         }
-      })
-    );
+      } catch (error) {
+        console.error('Error in batch book fetch, using fallback data:', error);
+        
+        // Fallback to Pinecone data for all results
+        enrichedResults = pineconeResults.results.map((result: PineconeResult) => ({
+          id: result.id,
+          name: result.name || 'Unknown Book',
+          description: result.description || 'No description available',
+          price: 0,
+          currency: 'USD',
+          searchScore: result.searchScore || 0,
+          searchSnippet: result.searchSnippet || ''
+        }));
+      }
+    } else {
+      // No valid book IDs found
+      enrichedResults = [];
+    }
 
     return {
       success: true,

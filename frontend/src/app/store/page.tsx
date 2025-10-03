@@ -3,16 +3,15 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
 import { 
   getCategories, 
   getBooksByCategory, 
-  getCarouselBooksByCategory,
-  loadImageForBook,
-  loadImagesForBooksBatch,
+  loadCategoriesInParallel,
+  getInitialStoreData,
   Category
 } from '@/lib/square';
 import Image from 'next/image';
@@ -26,84 +25,27 @@ const fallbackCategories: Category[] = categoryIds.map((id, i) => ({
   name: categoryNames[i] || `Category ${i + 1}`,
 }));
 
-// Lazy loading image component
-function LazyBookImage({ 
-  book, 
-  priority = false, 
-  loadImage, 
-  loadedImages 
-}: { 
-  book: Book; 
-  priority: boolean; 
-  loadImage: (imageId: string) => void;
-  loadedImages: Record<string, string>;
-}) {
-  const imgRef = useRef<HTMLDivElement>(null);
-  const [isInView, setIsInView] = useState(priority); // Priority images start as "in view"
-  
-  // Use the loaded image URL if available, fallback to book's imageUrl
-  const effectiveImageUrl = book.imageId && loadedImages[book.imageId] ? loadedImages[book.imageId] : book.imageUrl;
-  
-  useEffect(() => {
-    if (priority || !imgRef.current) return; // Skip intersection observer for priority images
-    
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !isInView) {
-            setIsInView(true);
-            observer.disconnect(); // Stop observing once image is in view
-          }
-        });
-      },
-      { 
-        rootMargin: '50px', // Start loading images 50px before they enter viewport
-        threshold: 0.1 
-      }
-    );
-    
-    observer.observe(imgRef.current);
-    
-    return () => observer.disconnect();
-  }, [priority, isInView]);
-  
-  useEffect(() => {
-    if (isInView && book.imageId && !effectiveImageUrl) {
-      loadImage(book.imageId);
-    }
-  }, [isInView, book.imageId, effectiveImageUrl, loadImage]);
-  
+// Simple book image component (no lazy loading complexity)
+function BookImage({ book }: { book: Book }) {
   return (
-    <div ref={imgRef} className="relative w-full h-full">
-      {effectiveImageUrl ? (
+    <div className="relative w-full h-full">
+      {book.imageUrl ? (
         <Image
-          src={effectiveImageUrl}
+          src={book.imageUrl}
           alt={book.name}
           fill={true}
-          priority={priority}
-          loading={priority ? "eager" : "lazy"}
+          loading="lazy"
           sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
           className="object-cover"
         />
       ) : (
         <div className="text-gray-400 text-center flex items-center justify-center h-full">
-          {isInView && book.imageId ? (
-            // Loading state
-            <div className="animate-pulse">
-              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-              </svg>
-              <p className="text-xs">Loading...</p>
-            </div>
-          ) : (
-            // No image placeholder
-            <div>
-              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-              </svg>
-              <p className="text-xs">No Image</p>
-            </div>
-          )}
+          <div>
+            <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+            </svg>
+            <p className="text-xs">No Image</p>
+          </div>
         </div>
       )}
     </div>
@@ -116,109 +58,70 @@ export default function BooksPage() {
   const [selectedGenre, setSelectedGenre] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [booksPerPage] = useState(12); // Number of books per page for tile view
-  const [loading, setLoading] = useState(false); // Don't block page rendering
   const [loadingBooks, setLoadingBooks] = useState(true); // Start with books loading since we show skeleton immediately
   const [error, setError] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
 
-  // Add state for managing image loading
-  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
-  const [loadedImages, setLoadedImages] = useState<Record<string, string>>({});
-  const [priorityBookIds, setPriorityBookIds] = useState<Set<string>>(new Set());
-
-  // Helper function to check if a book should be priority loaded
-  const isBookPriority = useCallback((book: Book): boolean => {
-    return priorityBookIds.has(book.id);
-  }, [priorityBookIds]);
-
-  // Fetch categories on initial load
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // Load carousel books immediately since we have fallback categories
-  useEffect(() => {
-    if (!selectedGenre) {
-      console.log('Loading carousel books immediately with available categories');
-      fetchCarouselBooks();
+  // Fetch books for selected genre (tile view)
+  const fetchSelectedGenreBooks = useCallback(async () => {
+    if (!selectedGenre) return;
+    
+    setLoadingBooks(true);
+    try {
+      const response = await getBooksByCategory(selectedGenre, { includeImages: false });
+      setBooksByCategory(prev => ({ ...prev, [selectedGenre]: response.books }));
+    } catch (err) {
+      console.error('Error fetching genre books:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoadingBooks(false);
     }
-  }, [selectedGenre]); // Only depend on selectedGenre, not categories since we have fallback
+  }, [selectedGenre]);
+
+  // Optimized initial data loading
+  useEffect(() => {
+    const loadStoreData = async () => {
+      if (selectedGenre) return; // Skip if genre is selected
+      
+      try {
+        console.log('Loading initial store data...');
+        
+        const { categories: apiCategories, initialBooks } = await getInitialStoreData(categoryIds);
+        
+        // Update categories if we got valid data, otherwise keep fallback
+        if (apiCategories && apiCategories.length > 0) {
+          setCategories(apiCategories);
+        }
+        
+        // Update books with initial data
+        setBooksByCategory(initialBooks);
+        setLoadingBooks(false);
+        
+        console.log('Initial store data loaded successfully');
+        
+      } catch (error) {
+        console.error('Failed to load store data:', error);
+        // Fallback: try to fetch categories at least
+        try {
+          await fetchCategories();
+        } catch (fallbackError) {
+          console.warn('Categories fallback also failed:', fallbackError);
+        }
+        setLoadingBooks(false);
+      }
+    };
+    
+    loadStoreData();
+  }, [selectedGenre]);
 
   // Fetch book data only when categories are loaded and user selects a genre
   useEffect(() => {
     if (categories.length > 0 && selectedGenre) {
       fetchSelectedGenreBooks();
     }
-  }, [selectedGenre, categories]);
-
-  // Function to load an individual image on demand
-  const loadImageOnDemand = useCallback(async (imageId: string) => {
-    if (!imageId || loadedImages[imageId] || loadingImages.has(imageId)) {
-      return; // Already loaded or loading
-    }
-
-    setLoadingImages(prev => new Set(prev).add(imageId));
-    
-    try {
-      // Find a book with this imageId and load its image using Square API
-      const allBooks: Book[] = [];
-      Object.values(booksByCategory).forEach(books => {
-        allBooks.push(...books.filter(book => book.imageId === imageId));
-      });
-      
-      if (allBooks.length > 0) {
-        const bookWithImage = await loadImageForBook(allBooks[0]);
-        if (bookWithImage.imageUrl) {
-          setLoadedImages(prev => ({ ...prev, [imageId]: bookWithImage.imageUrl! }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load image:', error);
-    } finally {
-      setLoadingImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(imageId);
-        return newSet;
-      });
-    }
-  }, [loadedImages, loadingImages, booksByCategory]);
-
-  // Load priority images for the first 8 books across all categories
-  const loadPriorityImages = useCallback(async (booksByCategory: Record<string, Book[]>) => {
-    const allBooks: Book[] = [];
-    
-    // Collect all books from all categories
-    Object.values(booksByCategory).forEach(books => {
-      allBooks.push(...books);
-    });
-    
-    // Get first 8 books that have imageId and don't already have imageUrl
-    const priorityBooks = allBooks
-      .filter(book => book.imageId && !book.imageUrl)
-      .slice(0, 8);
-    
-    // Set priority book IDs
-    setPriorityBookIds(new Set(priorityBooks.map(book => book.id)));
-    
-    // Load their images in parallel using Square API
-    try {
-      const booksWithImages = await loadImagesForBooksBatch(priorityBooks);
-      
-      // Update loaded images state
-      const newLoadedImages: Record<string, string> = {};
-      booksWithImages.forEach(book => {
-        if (book.imageId && book.imageUrl) {
-          newLoadedImages[book.imageId] = book.imageUrl;
-        }
-      });
-      
-      setLoadedImages(prev => ({ ...prev, ...newLoadedImages }));
-    } catch (error) {
-      console.error('Failed to load priority images:', error);
-    }
-  }, []);
+  }, [selectedGenre, categories, fetchSelectedGenreBooks]);
 
   const fetchCategories = async () => {
     try {
@@ -233,59 +136,6 @@ export default function BooksPage() {
       console.error('Error fetching categories:', err);
       // Don't set error state or override categories - just log the error and keep fallback categories
       console.warn('Failed to fetch categories from Square API, using fallback categories');
-    }
-  };
-
-  // Fetch books for selected genre (tile view)
-  const fetchSelectedGenreBooks = async () => {
-    if (!selectedGenre) return;
-    
-    setLoadingBooks(true);
-    try {
-      const data = await getBooksByCategory(selectedGenre, { includeImages: false });
-      setBooksByCategory(prev => ({ ...prev, [selectedGenre]: data }));
-    } catch (err) {
-      console.error('Error fetching genre books:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoadingBooks(false);
-    }
-  };
-
-  // Fetch carousel books for display categories (progressive loading)
-  const fetchCarouselBooks = async () => {
-    setLoadingBooks(true);
-    try {
-      // Only fetch books for the display categories
-      const categoriesToFetch = categories.filter(cat => categoryIds.includes(cat.id));
-      
-      console.log('Fetching books for carousel categories:', categoriesToFetch.length);
-      const promises = categoriesToFetch.map(async (cat) => {
-        try {
-          const carouselBooks = await getCarouselBooksByCategory(cat.id, 20);
-          return { id: cat.id, books: carouselBooks };
-        } catch (error) {
-          console.warn(`Error fetching category ${cat.name}:`, error);
-          return { id: cat.id, books: [] }; // Return empty array for failed category
-        }
-      });
-
-      const resultsArray = await Promise.all(promises);
-      const results: Record<string, Book[]> = {};
-      for (const { id, books } of resultsArray) {
-        results[id] = books;
-      }
-
-      setBooksByCategory(results);
-      
-      // After books are loaded, start priority loading for first 8 images across all categories
-      loadPriorityImages(results);
-    } catch (err) {
-      console.error('Error fetching carousel books:', err);
-      // Don't set error state - just log the error and continue showing skeleton
-      console.warn('Failed to fetch books, showing skeleton placeholders');
-    } finally {
-      setLoadingBooks(false);
     }
   };
 
@@ -338,15 +188,6 @@ export default function BooksPage() {
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-
-  // Don't show error states - always show skeleton/content
-  // if (error) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="text-red-600">Error: {error}</div>
-  //     </div>
-  //   );
-  // }
 
   return (
     <div className="min-h-screen bg-gw-white">
@@ -444,7 +285,7 @@ export default function BooksPage() {
               <>
                 {/* Books Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
-                  {paginationData.paginatedBooks.map((book: Book, index: number) => (
+                  {paginationData.paginatedBooks.map((book: Book) => (
                     <div
                       key={book.id}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -452,12 +293,7 @@ export default function BooksPage() {
                     >
                       <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                        <LazyBookImage 
-                          book={book} 
-                          priority={isBookPriority(book)}
-                          loadImage={loadImageOnDemand}
-                          loadedImages={loadedImages}
-                        />
+                        <BookImage book={book} />
                       </div>
 
                       <div className="p-3">
@@ -569,7 +405,7 @@ export default function BooksPage() {
                     </div>
                   ) : (
                   <div className="flex overflow-x-auto space-x-4 pb-2">
-                    {books.map((book, index) => (
+                    {books.map((book) => (
                       <div
                         key={book.id}
                         className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -577,12 +413,7 @@ export default function BooksPage() {
                       >
                         <div className=" h-50 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                           <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                          <LazyBookImage 
-                            book={book} 
-                            priority={isBookPriority(book)}
-                            loadImage={loadImageOnDemand}
-                            loadedImages={loadedImages}
-                          />
+                          <BookImage book={book} />
                         </div>
 
                         <div className="p-3">

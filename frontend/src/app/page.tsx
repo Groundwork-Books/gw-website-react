@@ -3,7 +3,6 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import EventsCarousel from '@/components/EventsCarousel';
-import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { getInstagramPosts, type InstagramPost } from '@/lib/api';

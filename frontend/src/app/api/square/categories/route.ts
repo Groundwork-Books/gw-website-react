@@ -29,7 +29,7 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
   }
 
   const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
+  const RETRY_DELAY_MS = 500; // Match backend delay
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {

@@ -34,8 +34,8 @@ interface ProcessedBook {
   price: number;
   currency: string;
   categoryId: string;
-  imageId: string;
-  imageUrl?: string;
+  imageId: string | null;
+  imageUrl?: string | null;
 }
 
 interface SearchCatalogItemsRequest {
@@ -56,7 +56,7 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
   }
 
   const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000; // Start with 1 second
+  const RETRY_DELAY_MS = 500; // Match backend delay
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -71,7 +71,7 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
       });
 
       if (response.status === 429) {
-        // Rate limited - wait and retry with exponential backoff
+        // Rate limited - wait and retry with exponential backoff (match backend pattern)
         const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
         console.warn(`Square API rate limited, retrying in ${delay}ms... (attempt ${attempt + 1})`);
         if (attempt < MAX_RETRIES) {
@@ -102,7 +102,7 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
   return null;
 }
 
-// GET /api/square/category/[categoryId]?includeImages=false&limit=20
+// GET /api/square/category/[categoryId]?includeImages=false&limit=20&priorityCount=10
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ categoryId: string }> }
@@ -112,6 +112,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const includeImages = searchParams.get('includeImages') === 'true';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
+    const priorityCount = searchParams.get('priorityCount') ? parseInt(searchParams.get('priorityCount')!) : 10;
     
     if (!categoryId) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
@@ -144,38 +145,72 @@ export async function GET(
         price: price ? Number(price.amount) / 100 : 0,
         currency: price?.currency || 'USD',
         categoryId: categoryId,
-        imageId: itemData?.variations?.[0]?.item_variation_data?.item_id || item.id
+        imageId: itemData?.image_ids?.[0] || null, // Use correct image ID from image_ids array
+        imageUrl: null // Will be loaded in priority batches if needed
       };
     });
 
-    // If images are requested, we'll load them sequentially to avoid rate limits
+    // If images are requested, load them using batch API
     if (includeImages && books.length > 0) {
       const booksWithImageIds = books.filter((book: ProcessedBook) => book.imageId);
-      console.log(`Loading images for ${booksWithImageIds.length} books sequentially to avoid rate limits`);
       
-      // Process images sequentially with delays to respect rate limits
-      for (const book of booksWithImageIds) {
-        if (book.imageId) {
-          try {
-            const imageData = await fetchSquareAPI(`/v2/catalog/object/${book.imageId}`);
-            if (imageData?.object?.image_data?.url) {
-              book.imageUrl = imageData.object.image_data.url;
-            }
-          } catch (error) {
-            console.warn(`Failed to fetch image for book ${book.id}:`, error);
-            // Continue with other images even if one fails
-          }
+      // Load images for the requested number of books
+      const booksToLoad = booksWithImageIds.slice(0, Math.min(priorityCount, booksWithImageIds.length));
+      
+      // Load images using batch image API
+      if (booksToLoad.length > 0) {
+        
+        try {
+          const imageIds = booksToLoad.map(book => book.imageId).filter(Boolean) as string[];
           
-          // Add small delay between requests to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Use our batch image API route
+          const imageResponse = await fetch(`${request.nextUrl.origin}/api/square/images/batch`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageIds }),
+          });
+
+          if (imageResponse.ok) {
+            const imageData = await imageResponse.json();
+            const imageMap: Record<string, string> = {};
+            
+            imageData.images.forEach((image: { id: string; imageUrl?: string }) => {
+              if (image.imageUrl) {
+                imageMap[image.id] = image.imageUrl;
+              }
+            });
+
+            // Apply the image URLs to books
+            booksToLoad.forEach(book => {
+              if (book.imageId && imageMap[book.imageId]) {
+                book.imageUrl = imageMap[book.imageId];
+              }
+            });
+          } else {
+            console.error(`Batch image API failed with status ${imageResponse.status}`);
+          }
+        } catch (error) {
+          console.error('Batch image loading failed:', error);
         }
       }
       
-      const imagesLoaded = books.filter((book: ProcessedBook) => book.imageUrl).length;
-      console.log(`Images loaded: ${imagesLoaded}/${booksWithImageIds.length}`);
+      // Return books with loaded images
+      const totalImagesLoaded = books.filter((book: ProcessedBook) => book.imageUrl).length;
+      
+      const response = {
+        books,
+        metadata: {
+          totalBooks: books.length,
+          imagesLoaded: totalImagesLoaded
+        }
+      };
+      
+      return NextResponse.json(response);
     }
 
-    return NextResponse.json(books);
+    return NextResponse.json({ books, metadata: { totalBooks: books.length, imagesLoaded: 0 } });
   } catch (error) {
     console.error(`Error fetching books for category:`, error);
     return NextResponse.json({ error: 'Failed to fetch books' }, { status: 500 });

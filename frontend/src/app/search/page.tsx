@@ -18,14 +18,6 @@ interface SearchResult extends Book {
   score?: number; // Keep for backward compatibility
 }
 
-interface SearchResponse {
-  success: boolean;
-  query: string;
-  results: SearchResult[];
-  total: number;
-  error?: string;
-}
-
 function SearchPageContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
@@ -82,16 +74,6 @@ function SearchPageContent() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = (newQuery: string) => {
-    setQuery(newQuery);
-    performSearch(newQuery);
-
-    // Update URL without page reload
-    const url = new URL(window.location.href);
-    url.searchParams.set('q', newQuery);
-    window.history.pushState({}, '', url.toString());
   };
 
   return (

@@ -2,8 +2,7 @@ import { Book } from './types';
 
 // Configuration
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500;
-const BATCH_SIZE = 5;
+const RETRY_DELAY_MS = 500; // Match backend delay
 
 // Types
 export interface Category {
@@ -14,6 +13,14 @@ export interface Category {
 export interface SearchOptions {
   includeImages?: boolean;
   limit?: number;
+}
+
+export interface CategoryResponse {
+  books: Book[];
+  metadata: {
+    totalBooks: number;
+    imagesLoaded: number;
+  };
 }
 
 // Utility functions
@@ -68,24 +75,6 @@ async function fetchWithRetry<T = unknown>(
   throw new Error('Maximum retries exceeded');
 }
 
-// Interface for image data response
-interface ImageData {
-  imageUrl: string;
-}
-
-// Image loading using Next.js API route
-async function getImageUrl(imageId: string): Promise<string | null> {
-  if (!imageId) return null;
-  
-  try {
-    const data = await fetchWithRetry<ImageData>(`/api/square/image/${imageId}`);
-    return data?.imageUrl || null;
-  } catch (error) {
-    console.error(`Failed to fetch image ${imageId}:`, error);
-    return null;
-  }
-}
-
 // Main API functions
 export async function getCategories(): Promise<Category[]> {
   try {
@@ -97,29 +86,11 @@ export async function getCategories(): Promise<Category[]> {
   }
 }
 
-export async function getBookById(bookId: string): Promise<Book | null> {
-  try {
-    const data = await fetchWithRetry(`/api/square/book/${bookId}`);
-    
-    // The API route already transforms the data, but we need to load the image separately
-    const book = data as Book;
-    
-    // Load image if available
-    if (book.imageId) {
-      book.imageUrl = await getImageUrl(book.imageId) || undefined;
-    }
-
-    return book;
-  } catch (error) {
-    console.error(`Error fetching book ${bookId}:`, error);
-    return null;
-  }
-}
 
 export async function getBooksByCategory(
   categoryId: string, 
   options: SearchOptions = {}
-): Promise<Book[]> {
+): Promise<CategoryResponse> {
   const { includeImages = false, limit } = options;
   
   try {
@@ -129,12 +100,38 @@ export async function getBooksByCategory(
     if (limit) params.append('limit', limit.toString());
     
     const url = `/api/square/category/${categoryId}${params.toString() ? `?${params.toString()}` : ''}`;
-    const books = await fetchWithRetry(url);
+    const response = await fetchWithRetry<CategoryResponse>(url);
 
-    return Array.isArray(books) ? books : [];
+    // Handle both old format (just books array) and new format (with metadata)
+    if (Array.isArray(response)) {
+      // Old format - convert to new format
+      return {
+        books: response,
+        metadata: {
+          totalBooks: response.length,
+          imagesLoaded: response.filter((book: Book) => book.imageUrl).length
+        }
+      };
+    }
+
+    return response || {
+      books: [],
+      metadata: {
+        totalBooks: 0,
+        priorityImagesLoaded: 0,
+        lazyImagesAvailable: 0,
+        lazyLoadingSupported: false
+      }
+    };
   } catch (error) {
     console.error(`Error fetching books for category ${categoryId}:`, error);
-    return [];
+    return {
+      books: [],
+      metadata: {
+        totalBooks: 0,
+        imagesLoaded: 0
+      }
+    };
   }
 }
 
@@ -145,14 +142,17 @@ export async function getCarouselBooksByCategory(
   // For carousels, fetch slightly more books to account for missing images
   const fetchLimit = Math.min(limit + 10, 50);
   
-  const allBooks = await getBooksByCategory(categoryId, { 
+  const response = await getBooksByCategory(categoryId, { 
     includeImages: true, 
-    limit: fetchLimit 
+    limit: fetchLimit,
+    // Load images for all carousel items
   });
   
+  const allBooks = response.books;
+  
   // Priority: books with images first, then others
-  const withImages = allBooks.filter(book => book.imageUrl);
-  const withoutImages = allBooks.filter(book => !book.imageUrl);
+  const withImages = allBooks.filter((book: Book) => book.imageUrl);
+  const withoutImages = allBooks.filter((book: Book) => !book.imageUrl);
 
   if (withImages.length >= limit) {
     return withImages.slice(0, limit);
@@ -161,42 +161,188 @@ export async function getCarouselBooksByCategory(
   return [...withImages, ...withoutImages.slice(0, limit - withImages.length)];
 }
 
-// Helper function to load images in batches
-async function loadImagesForBooks(books: Book[]): Promise<void> {
-  const booksWithImageIds = books.filter(book => book.imageId);
-  
-  if (booksWithImageIds.length === 0) return;
 
-  console.log(`Loading images for ${booksWithImageIds.length} books (batch size: ${BATCH_SIZE})`);
-  
-  for (let i = 0; i < booksWithImageIds.length; i += BATCH_SIZE) {
-    const batch = booksWithImageIds.slice(i, i + BATCH_SIZE);
+// Batch API functions
+export async function getBooksById(bookIds: string[]): Promise<Book[]> {
+  if (bookIds.length === 0) return [];
+
+  try {
+    const response = await fetch('/api/square/books/batch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ bookIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch books: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.books || [];
+  } catch (error) {
+    console.error('Error fetching books in batch:', error);
+    return [];
+  }
+}
+
+export async function getImageUrlsBatch(imageIds: string[]): Promise<Record<string, string | null>> {
+  if (imageIds.length === 0) return {};
+
+  try {
+    const response = await fetch('/api/square/images/batch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const imageMap: Record<string, string | null> = {};
     
-    await Promise.all(
-      batch.map(async (book) => {
-        if (book.imageId) {
-          book.imageUrl = await getImageUrl(book.imageId) || undefined;
-        }
-      })
-    );
+    data.images.forEach((image: { id: string; imageUrl?: string | null }) => {
+      imageMap[image.id] = image.imageUrl ?? null;
+    });
+
+    return imageMap;
+  } catch (error) {
+    console.error('Error fetching images in batch:', error);
+    return {};
   }
-  
-  const imagesLoaded = books.filter(book => book.imageUrl).length;
-  console.log(`Images loaded: ${imagesLoaded}/${booksWithImageIds.length}`);
 }
 
-// Priority loading for performance-critical components
-export async function loadImageForBook(book: Book): Promise<Book> {
-  if (!book.imageId || book.imageUrl) {
+export async function getCategoriesBatch(categoryIds: string[]): Promise<Category[]> {
+  if (categoryIds.length === 0) return [];
+
+  try {
+    const response = await fetch('/api/square/categories/batch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ categoryIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch categories: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.categories || [];
+  } catch (error) {
+    console.error('Error fetching categories in batch:', error);
+    return [];
+  }
+}
+
+// Enhanced batch image loading for books
+export async function loadImagesForBooksBatchOptimized(books: Book[]): Promise<Book[]> {
+  const booksWithImageIds = books.filter(book => book.imageId && !book.imageUrl);
+  
+  if (booksWithImageIds.length === 0) {
+    return books;
+  }
+
+  const imageIds = booksWithImageIds.map(book => book.imageId!);
+  const imageMap = await getImageUrlsBatch(imageIds);
+
+  // Apply the loaded images to the books
+  return books.map(book => {
+    if (book.imageId && imageMap[book.imageId] !== undefined) {
+      return {
+        ...book,
+        imageUrl: imageMap[book.imageId] || undefined
+      };
+    }
     return book;
-  }
-  
-  const imageUrl = await getImageUrl(book.imageId);
-  return { ...book, imageUrl: imageUrl || undefined };
+  });
 }
 
-export async function loadImagesForBooksBatch(books: Book[]): Promise<Book[]> {
-  const updatedBooks = [...books];
-  await loadImagesForBooks(updatedBooks);
-  return updatedBooks;
+// OPTIMIZATION: Parallel category loading with progressive updates
+export async function loadCategoriesInParallel(
+  categoryIds: string[],
+  options: {
+    limit?: number;
+    includeImages?: boolean;
+    onCategoryLoaded?: (categoryId: string, books: Book[]) => void;
+  } = {}
+): Promise<Record<string, Book[]>> {
+  const { limit = 20, includeImages = true, onCategoryLoaded } = options;
+  
+  console.log(`Loading ${categoryIds.length} categories in parallel...`);
+  const startTime = Date.now();
+  
+  // Create promises for all categories
+  const categoryPromises = categoryIds.map(async (categoryId) => {
+    try {
+      const response = await getBooksByCategory(categoryId, { 
+        includeImages, 
+        limit 
+      });
+      
+      // Progressive update callback - allows UI to update as each category loads
+      if (onCategoryLoaded) {
+        onCategoryLoaded(categoryId, response.books);
+      }
+      
+      return { categoryId, books: response.books, success: true };
+    } catch (error) {
+      console.warn(`Failed to load category ${categoryId}:`, error);
+      return { categoryId, books: [], success: false };
+    }
+  });
+  
+  // Wait for all categories to complete
+  const results = await Promise.all(categoryPromises);
+  
+  // Convert to record format
+  const categoryBooks: Record<string, Book[]> = {};
+  results.forEach(({ categoryId, books }) => {
+    categoryBooks[categoryId] = books;
+  });
+  
+  const totalTime = Date.now() - startTime;
+  const successCount = results.filter(r => r.success).length;
+  console.log(`Parallel loading complete: ${successCount}/${categoryIds.length} categories loaded in ${totalTime}ms`);
+  
+  return categoryBooks;
+}
+
+// OPTIMIZATION: Fast initial load strategy with progressive loading
+export async function getInitialStoreData(
+  categoryIds: string[]
+): Promise<{
+  categories: Category[];
+  initialBooks: Record<string, Book[]>;
+}> {
+  console.log('Starting optimized store data load...');
+  const startTime = Date.now();
+  
+  try {
+    // Load categories and initial books in parallel
+    const [categories, initialBooks] = await Promise.all([
+      getCategories(),
+      loadCategoriesInParallel(categoryIds, {
+        limit: 20, // Load reasonable amount initially
+        includeImages: true
+      })
+    ]);
+    
+    const totalTime = Date.now() - startTime;
+    console.log(`Initial store data loaded in ${totalTime}ms`);
+    
+    return {
+      categories: categories.length > 0 ? categories : [], // Fallback handled in component
+      initialBooks
+    };
+  } catch (error) {
+    console.error('Failed to load initial store data:', error);
+    throw error; // Let component handle fallback
+  }
 }
