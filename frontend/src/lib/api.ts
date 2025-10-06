@@ -56,7 +56,8 @@ export async function searchBooks(query: string, limit = 10): Promise<SearchResu
 
     const pineconeResults = await response.json();
     
-    if (!pineconeResults.success) {
+    if (!pineconeResults.success || !pineconeResults.results || !Array.isArray(pineconeResults.results)) {
+      console.error('Invalid search response structure:', pineconeResults);
       return {
         success: false,
         query,
@@ -86,6 +87,13 @@ export async function searchBooks(query: string, limit = 10): Promise<SearchResu
 
         if (batchResponse.ok) {
           const batchData = await batchResponse.json();
+          
+          // Ensure batchData.books exists and is an array
+          if (!batchData.books || !Array.isArray(batchData.books)) {
+            console.error('Batch API returned invalid data structure');
+            throw new Error('Invalid batch response structure');
+          }
+          
           const bookMap = new Map(batchData.books.map((book: Book) => [book.id, book]));
 
           // Merge Square API data with Pinecone search results

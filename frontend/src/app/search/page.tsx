@@ -58,7 +58,8 @@ function SearchPageContent() {
 
       if (data.success) {
         // Convert searchScore to score for compatibility
-        const resultsWithScore = data.results.map(result => ({
+        const results = data.results || []; // Ensure results is always an array
+        const resultsWithScore = results.map(result => ({
           ...result,
           score: result.searchScore
         }));

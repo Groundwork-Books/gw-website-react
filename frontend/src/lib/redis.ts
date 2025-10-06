@@ -63,7 +63,8 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
 // Generic cache set function with TTL
 export async function setCachedData<T>(key: string, data: T, ttl: number = CACHE_TTL.BOOK_DATA): Promise<boolean> {
   const success = await safeRedisOperation(async () => {
-    await redis.setex(key, ttl, JSON.stringify(data));
+    // Upstash Redis automatically handles JSON serialization, so we don't need to stringify
+    await redis.setex(key, ttl, data);
     return true;
   });
   return success ?? false;

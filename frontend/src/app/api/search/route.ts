@@ -28,6 +28,14 @@ interface SearchBook {
   searchScore: number;
   searchSnippet: string;
 }
+
+// Interface for cached search results to handle different cached data formats
+interface CachedSearchResult {
+  results?: SearchBook[];
+  books?: SearchBook[];
+  total?: number;
+  totalCount?: number;
+}
 import { Pinecone } from '@pinecone-database/pinecone';
 
 // Initialize Pinecone client
@@ -68,13 +76,53 @@ export async function POST(request: NextRequest) {
     try {
       const cachedResult = await getCachedSearchResults(cacheKey);
       if (cachedResult) {
-        console.log(`Returning cached search results for query: "${normalizedQuery}"`);
+        console.log(`Cache hit for query: "${normalizedQuery}"`);
+        
+        // Handle different cached data formats
+        let books: SearchBook[] = [];
+        let totalCount = 0;
+        
+        if (typeof cachedResult === 'string') {
+          // Handle case where cached data is still a JSON string
+          try {
+            const parsed = JSON.parse(cachedResult);
+            // Check if it's a full API response or just the books data
+            if (parsed.results) {
+              books = Array.isArray(parsed.results) ? parsed.results : [];
+              totalCount = parsed.total || books.length;
+            } else if (parsed.books) {
+              books = Array.isArray(parsed.books) ? parsed.books : [];
+              totalCount = parsed.totalCount || books.length;
+            }
+            console.log('Parsed string cached data:', { books: books.length, totalCount });
+          } catch (parseError) {
+            console.error('Failed to parse cached result:', parseError);
+            books = [];
+            totalCount = 0;
+          }
+        } else if (cachedResult && typeof cachedResult === 'object') {
+          // Handle normal object format - check if it's a full API response or just books data
+          const cached = cachedResult as CachedSearchResult; // Type assertion to handle different cached formats
+          if (cached.results) {
+            // It's a full API response
+            books = Array.isArray(cached.results) ? cached.results : [];
+            totalCount = cached.total || books.length;
+          } else if (cached.books) {
+            // It's just the books data structure
+            books = Array.isArray(cached.books) ? cached.books : [];
+            totalCount = cached.totalCount || books.length;
+          }
+          console.log('Object cached data:', { books: books.length, totalCount });
+        }
+        
+        console.log(`Returning cached results: ${books.length} books`);
+        
         return NextResponse.json({
           success: true,
           query: normalizedQuery,
-          results: cachedResult.books,
-          total: cachedResult.totalCount,
-          pineconeHits: cachedResult.totalCount,
+          results: books,
+          total: totalCount,
+          pineconeHits: totalCount,
           namespace: 'books',
           cached: true,
           cacheKey
@@ -106,6 +154,17 @@ export async function POST(request: NextRequest) {
     // Extract book information from Pinecone results
     const pineconeHits = searchResults.result?.hits || [];
     
+    if (!Array.isArray(pineconeHits)) {
+      console.warn('Pinecone search returned non-array hits:', pineconeHits);
+      return NextResponse.json({
+        success: false,
+        query: normalizedQuery,
+        results: [],
+        total: 0,
+        error: 'Invalid search results format'
+      });
+    }
+    
     // Transform Pinecone results to match frontend expectations
     const books = pineconeHits.map((hit: PineconeHit) => {
       return {
@@ -132,11 +191,18 @@ export async function POST(request: NextRequest) {
 
     // Cache the results
     try {
-      await setCachedSearchResults(cacheKey, {
+      const cacheData = {
         books: books,
         totalCount: books.length
+      };
+      console.log(`Caching search results for query: "${normalizedQuery}"`, {
+        booksCount: books.length,
+        sampleBook: books[0] ? { id: books[0].id, name: books[0].name } : null,
+        cacheData: JSON.stringify(cacheData, null, 2)
       });
-      console.log(`Cached search results for query: "${normalizedQuery}"`);
+      
+      await setCachedSearchResults(cacheKey, cacheData);
+      console.log(`Successfully cached search results for query: "${normalizedQuery}"`);
     } catch (error) {
       console.warn('Failed to cache search results:', error);
     }
