@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { 
+  getCachedSearchResults, 
+  setCachedSearchResults, 
+} from '@/lib/redis';
+import crypto from 'crypto';
 
 // Pinecone result types
 interface PineconeHit {
@@ -53,6 +58,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create a cache key based on query and limit
+    const normalizedQuery = query.trim().toLowerCase();
+    const cacheKey = crypto.createHash('md5').update(`${normalizedQuery}:${limit}`).digest('hex');
+    
+    console.log(`Search request for: "${normalizedQuery}" (limit: ${limit}), cache key: ${cacheKey}`);
+
+    // Check cache first
+    try {
+      const cachedResult = await getCachedSearchResults(cacheKey);
+      if (cachedResult) {
+        console.log(`Returning cached search results for query: "${normalizedQuery}"`);
+        return NextResponse.json({
+          success: true,
+          query: normalizedQuery,
+          results: cachedResult.books,
+          total: cachedResult.totalCount,
+          pineconeHits: cachedResult.totalCount,
+          namespace: 'books',
+          cached: true,
+          cacheKey
+        });
+      }
+    } catch (error) {
+      console.warn('Cache retrieval failed for search:', error);
+    }
+
+    console.log(`Cache miss, performing Pinecone search for: "${normalizedQuery}"`);
+
     const indexName = process.env.PINECONE_INDEX_NAME || 'books-index';
     const indexHost = process.env.PINECONE_INDEX_HOST;
     
@@ -63,7 +96,7 @@ export async function POST(request: NextRequest) {
     const searchResults = await namespaceClient.searchRecords({
       query: {
         topK: parseInt(String(limit)),
-        inputs: { text: query.trim() }
+        inputs: { text: normalizedQuery }
       },
       fields: ['ID', 'chunk_text', 'document_title', 'author', 'summary']
     });
@@ -87,13 +120,30 @@ export async function POST(request: NextRequest) {
       };
     }).filter((book): book is SearchBook => Boolean(book.id)); // Remove any results without ID
 
-    return NextResponse.json({
+    const searchResponse = {
       success: true,
-      query,
+      query: normalizedQuery,
       results: books,
       total: books.length,
       pineconeHits: pineconeHits.length,
-      namespace: 'books'
+      namespace: 'books',
+      cached: false
+    };
+
+    // Cache the results
+    try {
+      await setCachedSearchResults(cacheKey, {
+        books: books,
+        totalCount: books.length
+      });
+      console.log(`Cached search results for query: "${normalizedQuery}"`);
+    } catch (error) {
+      console.warn('Failed to cache search results:', error);
+    }
+
+    return NextResponse.json({
+      ...searchResponse,
+      cacheKey
     });
 
   } catch (error) {

@@ -79,7 +79,15 @@ async function fetchWithRetry<T = unknown>(
 export async function getCategories(): Promise<Category[]> {
   try {
     const data = await fetchWithRetry('/api/square/categories');
-    return Array.isArray(data) ? data : [];
+    // Handle both old format (array) and new format (object with categories property)
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data && typeof data === 'object' && 'categories' in data && Array.isArray(data.categories)) {
+      return data.categories as Category[];
+    } else {
+      console.warn('Unexpected categories response format:', data);
+      return [];
+    }
   } catch (error) {
     console.error('Failed to fetch categories:', error);
     return [];

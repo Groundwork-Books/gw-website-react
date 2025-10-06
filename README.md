@@ -52,7 +52,6 @@ Configure environment variables. They are available in the Slack or upon request
 
 **Frontend & API** (`frontend/.env`)  
 
-
 ### 3. Development
 Start the development server (includes both frontend and API):
 ```bash

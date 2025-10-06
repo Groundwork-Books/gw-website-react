@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CartItem, CustomerInfo } from '../../../../lib/square-types';
+import { CartItem } from '../../../../lib/square-types';
 
 // Helper function for Square API headers
 const getSquareHeaders = (includeContentType = true) => {

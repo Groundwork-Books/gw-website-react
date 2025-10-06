@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { 
+  getCachedImageUrl, 
+  setCachedImageUrls, 
+} from '@/lib/redis';
 
 const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
   ? 'https://connect.squareup.com' 
@@ -91,34 +95,87 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many image IDs. Maximum is 1000.' }, { status: 400 });
     }
 
-    console.log(`Batch retrieving ${imageIds.length} images from Square API`);
+    console.log(`Batch retrieving ${imageIds.length} images from cache and Square API`);
 
-    const data: BatchRetrieveResponse = await fetchSquareAPI('/v2/catalog/batch-retrieve', {
-      method: 'POST',
-      body: JSON.stringify({
-        object_ids: imageIds,
-        include_related_objects: false
-      }),
-    });
+    // Check cache for each image ID
+    const cachedImages: ImageResult[] = [];
+    const uncachedImageIds: string[] = [];
+    
+    await Promise.all(
+      imageIds.map(async (imageId: string) => {
+        try {
+          const cachedImageUrl = await getCachedImageUrl(imageId);
+          if (cachedImageUrl) {
+            cachedImages.push({
+              id: imageId,
+              imageUrl: cachedImageUrl,
+              name: undefined, // Cache only stores URL for efficiency
+              caption: undefined,
+            });
+          } else {
+            uncachedImageIds.push(imageId);
+          }
+        } catch (error) {
+          console.warn(`Cache check failed for image ${imageId}:`, error);
+          uncachedImageIds.push(imageId);
+        }
+      })
+    );
 
-    if (!data || !data.objects) {
-      return NextResponse.json({ images: [], errors: data?.errors || [] });
+    console.log(`Found ${cachedImages.length} cached images, fetching ${uncachedImageIds.length} from Square API`);
+
+    let fetchedImages: ImageResult[] = [];
+    let squareErrors: Array<{ code?: string; detail?: string; category?: string }> = [];
+
+    // Fetch uncached images from Square API
+    if (uncachedImageIds.length > 0) {
+      const data: BatchRetrieveResponse = await fetchSquareAPI('/v2/catalog/batch-retrieve', {
+        method: 'POST',
+        body: JSON.stringify({
+          object_ids: uncachedImageIds,
+          include_related_objects: false
+        }),
+      });
+
+      if (data && data.objects) {
+        // Transform Square catalog images to our image format
+        fetchedImages = data.objects
+          .filter((item: SquareCatalogImage) => item.type === 'IMAGE')
+          .map((item: SquareCatalogImage): ImageResult => ({
+            id: item.id,
+            imageUrl: item.image_data?.url || null,
+            name: item.image_data?.name,
+            caption: item.image_data?.caption,
+          }));
+
+        // Cache the newly fetched image URLs
+        const imageUrlsToCache: Record<string, string> = {};
+        fetchedImages.forEach(image => {
+          if (image.imageUrl) {
+            imageUrlsToCache[image.id] = image.imageUrl;
+          }
+        });
+
+        if (Object.keys(imageUrlsToCache).length > 0) {
+          try {
+            await setCachedImageUrls(imageUrlsToCache);
+            console.log(`Cached ${Object.keys(imageUrlsToCache).length} new image URLs`);
+          } catch (error) {
+            console.warn('Failed to cache image URLs:', error);
+          }
+        }
+      }
+
+      squareErrors = data?.errors || [];
     }
 
-    // Transform Square catalog images to our image format
-    const images: ImageResult[] = data.objects
-      .filter((item: SquareCatalogImage) => item.type === 'IMAGE')
-      .map((item: SquareCatalogImage): ImageResult => ({
-        id: item.id,
-        imageUrl: item.image_data?.url || null,
-        name: item.image_data?.name,
-        caption: item.image_data?.caption,
-      }));
+    // Combine cached and fetched images
+    const allImages = [...cachedImages, ...fetchedImages];
 
-    console.log(`Successfully retrieved ${images.length} images out of ${imageIds.length} requested`);
+    console.log(`Successfully retrieved ${allImages.length} images out of ${imageIds.length} requested (${cachedImages.length} from cache, ${fetchedImages.length} from API)`);
 
     // Create a map for quick lookup of which IDs were not found
-    const foundIds = new Set(images.map(image => image.id));
+    const foundIds = new Set(allImages.map(image => image.id));
     const notFoundIds = imageIds.filter((id: string) => !foundIds.has(id));
 
     if (notFoundIds.length > 0) {
@@ -126,11 +183,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      images,
-      total: images.length,
+      images: allImages,
+      total: allImages.length,
       requested: imageIds.length,
+      cached: cachedImages.length,
+      fetched: fetchedImages.length,
       notFound: notFoundIds,
-      errors: data.errors || []
+      errors: squareErrors
     });
 
   } catch (error) {

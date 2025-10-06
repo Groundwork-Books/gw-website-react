@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getCachedCategories, setCachedCategories } from '@/lib/redis';
 
 // Square catalog types
 interface SquareCategoryData {
@@ -74,10 +75,18 @@ async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
 // GET /api/square/categories
 export async function GET() {
   try {
+    // Try to get categories from Redis cache first
+    const cachedCategories = await getCachedCategories();
+    if (cachedCategories) {
+      console.log('Returning cached categories');
+      return NextResponse.json({ categories: cachedCategories });
+    }
+
+    console.log('Cache miss - fetching categories from Square API');
     const data = await fetchSquareAPI('/v2/catalog/list?types=CATEGORY');
     
     if (!data?.objects) {
-      return NextResponse.json([]);
+      return NextResponse.json({ categories: [] });
     }
 
     const categories = data.objects
@@ -87,9 +96,16 @@ export async function GET() {
       }))
       .sort((a: ProcessedCategory, b: ProcessedCategory) => a.name.localeCompare(b.name));
 
-    return NextResponse.json(categories);
+    // Cache the categories
+    await setCachedCategories(categories);
+    console.log(`Cached ${categories.length} categories`);
+
+    return NextResponse.json({ categories });
   } catch (error) {
     console.error('Failed to fetch categories:', error);
-    return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch categories',
+      categories: []
+    }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { GoogleAnalytics } from '@next/third-parties/google'
 
 // Load Calluna font
 const calluna = localFont({
@@ -38,6 +39,8 @@ export const metadata: Metadata = {
   description: "Nonprofit bookstore",
 };
 
+// Decided to have both google and vercel analytics for more data overall
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,7 +55,7 @@ export default function RootLayout({
           <CartProvider>
             <SpeedInsights />
             <Analytics />
-
+            <GoogleAnalytics gaId="G-RBZGQWDEZE" />
             {children}
           </CartProvider>
         </AuthProvider>

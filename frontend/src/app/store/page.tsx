@@ -59,7 +59,6 @@ export default function BooksPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [booksPerPage] = useState(12); // Number of books per page for tile view
   const [loadingBooks, setLoadingBooks] = useState(true); // Start with books loading since we show skeleton immediately
-  const [error, setError] = useState<string | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
@@ -82,7 +81,7 @@ export default function BooksPage() {
       }
     } catch (err) {
       console.error('Error fetching genre books:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      // Error is logged but no longer displayed to user
     } finally {
       setLoadingBooks(false);
     }

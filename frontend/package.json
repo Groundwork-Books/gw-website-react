@@ -13,6 +13,7 @@
     "@next/third-parties": "^15.5.4",
     "@pinecone-database/pinecone": "^6.1.2",
     "@tailwindcss/line-clamp": "^0.4.4",
+    "@upstash/redis": "^1.35.5",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "firebase": "^12.1.0",

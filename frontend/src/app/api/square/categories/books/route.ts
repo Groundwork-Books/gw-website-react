@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCachedBooksByCategory, setCachedBooksByCategory } from '@/lib/redis';
 
 // Square item types for this route
 interface SquareMoneyAmount {
@@ -115,8 +116,27 @@ export async function POST(request: NextRequest) {
     console.log(`Ultra-fast batch loading books for ${categoryIds.length} categories with limit ${limit}`);
     const startTime = Date.now();
 
-    // Make all category requests in parallel to Square API
-    const categoryPromises = categoryIds.map(async (categoryId: string) => {
+    // Check cache for each category first
+    const cachedResults: Record<string, { books: ProcessedBook[], metadata?: { totalBooks: number; booksWithImageIds: number } }> = {};
+    const uncachedCategoryIds: string[] = [];
+    
+    for (const categoryId of categoryIds) {
+      const cacheKey = `${categoryId}:limit:${limit}`;
+      const cached = await getCachedBooksByCategory(cacheKey);
+      if (cached) {
+        cachedResults[categoryId] = {
+          books: cached.books as ProcessedBook[],
+          metadata: cached.metadata
+        };
+      } else {
+        uncachedCategoryIds.push(categoryId);
+      }
+    }
+
+    console.log(`Cache hits: ${Object.keys(cachedResults).length}, Cache misses: ${uncachedCategoryIds.length}`);
+
+    // Make API requests only for uncached categories
+    const categoryPromises = uncachedCategoryIds.map(async (categoryId: string) => {
       try {
         const data = await fetchSquareAPI('/v2/catalog/search-catalog-items', {
           method: 'POST',
@@ -127,7 +147,21 @@ export async function POST(request: NextRequest) {
         });
 
         if (!data?.items) {
-          return { categoryId, books: [] };
+          const emptyResult = { 
+            categoryId, 
+            books: [],
+            metadata: {
+              totalBooks: 0,
+              booksWithImageIds: 0
+            }
+          };
+          // Cache empty results
+          const cacheKey = `${categoryId}:limit:${limit}`;
+          await setCachedBooksByCategory(cacheKey, { 
+            books: [], 
+            metadata: { totalBooks: 0, booksWithImageIds: 0 } 
+          });
+          return emptyResult;
         }
 
         const books: ProcessedBook[] = data.items.map((item: SquareCatalogItem): ProcessedBook => {
@@ -152,7 +186,7 @@ export async function POST(request: NextRequest) {
         const booksWithoutImages = books.filter((book: ProcessedBook) => !book.imageId);
         const sortedBooks = [...booksWithImages, ...booksWithoutImages];
 
-        return { 
+        const result = { 
           categoryId, 
           books: sortedBooks,
           metadata: {
@@ -160,6 +194,19 @@ export async function POST(request: NextRequest) {
             booksWithImageIds: booksWithImages.length
           }
         };
+
+        // Cache the result
+        const cacheKey = `${categoryId}:limit:${limit}`;
+        const cacheData = { 
+          books: sortedBooks, 
+          metadata: { 
+            totalBooks: sortedBooks.length, 
+            booksWithImageIds: booksWithImages.length 
+          } 
+        };
+        await setCachedBooksByCategory(cacheKey, cacheData);
+
+        return result;
       } catch (error) {
         console.error(`Error fetching books for category ${categoryId}:`, error);
         return { 
@@ -173,12 +220,25 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Wait for all categories to complete
-    const results = await Promise.all(categoryPromises);
+    // Wait for uncached categories to complete
+    const apiResults = await Promise.all(categoryPromises);
+
+    // Combine cached and API results
+    const allResults = [
+      ...Object.entries(cachedResults).map(([categoryId, cached]) => ({
+        categoryId,
+        books: cached.books || [],
+        metadata: {
+          totalBooks: cached.metadata?.totalBooks || 0,
+          booksWithImageIds: cached.metadata?.booksWithImageIds || 0
+        }
+      })),
+      ...apiResults
+    ];
 
     // Transform to expected format
     const categoriesData: Record<string, { books: ProcessedBook[]; metadata: { totalBooks: number; booksWithImageIds: number } }> = {};
-    results.forEach(({ categoryId, books, metadata }) => {
+    allResults.forEach(({ categoryId, books, metadata }) => {
       categoriesData[categoryId] = {
         books,
         metadata: metadata || { totalBooks: 0, booksWithImageIds: 0 }
@@ -186,15 +246,15 @@ export async function POST(request: NextRequest) {
     });
 
     const totalTime = Date.now() - startTime;
-    const totalBooks = results.reduce((sum, result) => sum + result.books.length, 0);
-    const totalBooksWithImages = results.reduce((sum, result) => sum + (result.metadata?.booksWithImageIds || 0), 0);
+    const totalBooks = allResults.reduce((sum, result) => sum + result.books.length, 0);
+    const totalBooksWithImages = allResults.reduce((sum, result) => sum + (result.metadata?.booksWithImageIds || 0), 0);
     
-    console.log(`Ultra-fast batch loading complete: ${totalBooks} books (${totalBooksWithImages} with images) across ${categoryIds.length} categories in ${totalTime}ms`);
+    console.log(`Ultra-fast batch loading complete: ${totalBooks} books (${totalBooksWithImages} with images) across ${categoryIds.length} categories in ${totalTime}ms (${Object.keys(cachedResults).length} from cache)`);
 
     return NextResponse.json({
       categories: categoriesData,
       summary: {
-        categoriesLoaded: results.length,
+        categoriesLoaded: allResults.length,
         totalBooks,
         totalBooksWithImages,
         loadTime: totalTime

@@ -54,7 +54,7 @@ export default function AdminPage() {
       } else {
         setError(data.error || 'Failed to fetch orders');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch orders');
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function AdminPage() {
       } else {
         setError(data.error || 'Failed to search orders');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to search orders');
     } finally {
       setLoading(false);
@@ -133,7 +133,7 @@ export default function AdminPage() {
       } else {
         setError(data.error || 'Failed to update order status');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to update order status');
     } finally {
       setUpdatingOrderId(null); // Clear loading state
@@ -144,7 +144,7 @@ export default function AdminPage() {
     return new Date(dateString).toLocaleString();
   };
 
-  const formatAmount = (amount: number, currency: string) => {
+  const formatAmount = (amount: number) => {
     return `$${(amount / 100).toFixed(2)}`;
   };
 
@@ -330,7 +330,7 @@ export default function AdminPage() {
                                 {getStatusText(fulfillment?.state || 'PROPOSED')}
                               </div>
                               <p className="text-lg font-semibold text-gray-900 mt-1">
-                                {formatAmount(order.total_money.amount, order.total_money.currency)}
+                                {formatAmount(order.total_money.amount)}
                               </p>
                             </div>
                           </div>

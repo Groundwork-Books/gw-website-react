@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SquareOrder, SquareOrdersSearchResponse } from '../../../../../lib/square-types';
+import { SquareOrder } from '../../../../../lib/square-types';
 
 // Helper function for Square API headers
 const getSquareHeaders = (includeContentType = true) => {
