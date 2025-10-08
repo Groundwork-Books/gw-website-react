@@ -138,7 +138,7 @@ function LoginForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                className="block w-full h-12 rounded-full border-1 border-gw-green-1 bg-white
                           px-5 text-gw-green-1 placeholder:text-gw-green-1/60
                           focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
                 placeholder="Enter your email address"
@@ -186,7 +186,7 @@ function LoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                  className="block w-full h-12 rounded-full border-1 border-gw-green-1 bg-white
                             px-5 text-gw-green-1 placeholder:text-gw-green-1/60
                             focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
                   placeholder="Email address"
@@ -196,7 +196,7 @@ function LoginForm() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                  className="block w-full h-12 rounded-full border-1 border-gw-green-1 bg-white
                             px-5 text-gw-green-1 placeholder:text-gw-green-1/60
                             focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
                   placeholder="Password"
