@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Image from 'next/image';
+import FAQAccordion from '@/components/FAQAccordion';
 
 export default function AccountPage() {
   const { user, loading, logout } = useAuth();
@@ -13,7 +14,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/no-account');
     }
   }, [user, loading, router]);
 
@@ -69,7 +70,7 @@ export default function AccountPage() {
       </section>
 
     <div className="py-20">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+      <div className="max-w-md mx-auto bg-white shadow-md p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Your Account</h1>
           <div className="w-20"></div> {/* Spacer for centering */}
@@ -108,6 +109,20 @@ export default function AccountPage() {
           Log Out
         </button>
       </div>
+      {/* FAQ Section */}
+        <div className = "pt-20 bg-white flex justify-center">
+          <h2 className="font-calluna text-2xl font-extrabold text-gw-green-1">
+            Frequently Asked Questions
+          </h2>
+        </div>
+        <div className = "pt-4 bg-white flex justify-center">
+          <h3 className="font-calluna text-black">
+            {"Can't find an answer to your question? Reach out to us at "} <a href="mailto:groundworkbookscollective@gmail.com" className="font-semibold underline">groundworkbookscollective@gmail.com</a>
+          </h3>
+        </div>
+        <div className="py-12 bg-white">
+        <FAQAccordion/>
+        </div>
       <Footer />
     </div>
   );

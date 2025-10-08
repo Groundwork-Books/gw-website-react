@@ -16,7 +16,7 @@ export default function CartPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/no-account');
     }
   }, [user, authLoading, router]);
 
