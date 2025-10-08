@@ -87,44 +87,195 @@ export default function BooksPage() {
     }
   }, [selectedGenre]);
 
-  // Optimized initial data loading
+  // Ultra-fast store loading using super cache
   useEffect(() => {
     const loadStoreData = async () => {
       if (selectedGenre) return; // Skip if genre is selected
       
       try {
-        console.log('Loading initial store data...');
+        console.log('Loading store data from super cache...');
+        const startTime = Date.now();
         
-        const { categories: apiCategories, initialBooks } = await getInitialStoreData(categoryIds);
+        const response = await fetch('/api/store/super-cache');
+        if (!response.ok) {
+          throw new Error(`Super cache failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const loadTime = Date.now() - startTime;
+        const cacheStatus = response.headers.get('X-Cache-Status');
+        
+        console.log(`Super cache loaded in ${loadTime}ms (${cacheStatus}):`, {
+          categories: data.categories?.length || 0,
+          books: data.metadata?.totalBooks || 0,
+          images: data.metadata?.imagesCount || 0,
+          cached: data.metadata?.cacheInfo?.cached
+        });
         
         // Update categories if we got valid data, otherwise keep fallback
-        if (apiCategories && apiCategories.length > 0) {
-          setCategories(apiCategories);
+        if (data.categories && data.categories.length > 0) {
+          setCategories(data.categories);
         }
         
-        // Update books with initial data (no images yet)
-        setBooksByCategory(initialBooks);
+        // Update books - they should already have images if cache is populated
+        if (data.defaultBooks && Object.keys(data.defaultBooks).length > 0) {
+          setBooksByCategory(data.defaultBooks);
+        } else if (!data.metadata?.cacheInfo?.cached) {
+          // If cache wasn't populated, use original method and then populate cache
+          console.log('Super cache not populated, loading with original method...');
+          
+          try {
+            const { categories: apiCategories, initialBooks } = await getInitialStoreData(categoryIds);
+            
+            if (apiCategories && apiCategories.length > 0) {
+              setCategories(apiCategories);
+            }
+            
+            setBooksByCategory(initialBooks);
+            
+            // Load images separately
+            try {
+              const booksWithImages = await loadImagesForCategories(initialBooks);
+              setBooksByCategory(booksWithImages);
+              
+              // Now populate the super cache with the loaded data
+              console.log('Populating super cache with loaded data...');
+              
+              // Extract image URLs from loaded books
+              const imageUrls: Record<string, string> = {};
+              Object.values(booksWithImages).flat().forEach(book => {
+                if (book.imageId && book.imageUrl) {
+                  imageUrls[book.imageId] = book.imageUrl;
+                }
+              });
+              
+              // Populate the super cache in the background
+              fetch('/api/store/super-cache', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  storeData: {
+                    categories: apiCategories,
+                    defaultBooks: booksWithImages,
+                    imageUrls
+                  }
+                }),
+              }).then(response => {
+                if (response.ok) {
+                  console.log('Super cache populated successfully with loaded data');
+                } else {
+                  console.warn('Failed to populate super cache:', response.status);
+                }
+              }).catch(err => {
+                console.warn('Background super cache population failed:', err);
+              });
+              
+            } catch (imageError) {
+              console.warn('Failed to load images in fallback:', imageError);
+              
+              // Still try to populate cache without images
+              const imageUrls: Record<string, string> = {};
+              fetch('/api/store/super-cache', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  storeData: {
+                    categories: apiCategories,
+                    defaultBooks: initialBooks,
+                    imageUrls
+                  }
+                }),
+              }).catch(err => {
+                console.warn('Background super cache population failed:', err);
+              });
+            }
+            
+          } catch (fallbackError) {
+            console.error('Original method also failed:', fallbackError);
+            
+            // Final fallback: try to fetch categories at least
+            try {
+              await fetchCategories();
+            } catch (categoriesError) {
+              console.warn('Categories fallback also failed:', categoriesError);
+            }
+          }
+        }
+        
         setLoadingBooks(false);
-        
-        console.log('Initial store data loaded successfully, now loading images...');
-        
-        // Immediately load images for all books
-        try {
-          const booksWithImages = await loadImagesForCategories(initialBooks);
-          setBooksByCategory(booksWithImages);
-          console.log('Images loaded successfully');
-        } catch (imageError) {
-          console.warn('Failed to load images, books will display without images:', imageError);
-        }
+        console.log('Store data loaded successfully');
         
       } catch (error) {
-        console.error('Failed to load store data:', error);
-        // Fallback: try to fetch categories at least
+        console.error('Super cache failed, falling back to original method:', error);
+        
+        // Fallback to original loading method
         try {
-          await fetchCategories();
+          console.log('Loading store data with original method...');
+          
+          const { categories: apiCategories, initialBooks } = await getInitialStoreData(categoryIds);
+          
+          if (apiCategories && apiCategories.length > 0) {
+            setCategories(apiCategories);
+          }
+          
+          setBooksByCategory(initialBooks);
+          
+          // Load images separately
+          try {
+            const booksWithImages = await loadImagesForCategories(initialBooks);
+            setBooksByCategory(booksWithImages);
+            
+            // Populate super cache with the successfully loaded data
+            console.log('Populating super cache with fallback data...');
+            
+            const imageUrls: Record<string, string> = {};
+            Object.values(booksWithImages).flat().forEach(book => {
+              if (book.imageId && book.imageUrl) {
+                imageUrls[book.imageId] = book.imageUrl;
+              }
+            });
+            
+            fetch('/api/store/super-cache', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                storeData: {
+                  categories: apiCategories,
+                  defaultBooks: booksWithImages,
+                  imageUrls
+                }
+              }),
+            }).then(response => {
+              if (response.ok) {
+                console.log('Super cache populated from fallback data');
+              } else {
+                console.warn('Failed to populate super cache from fallback');
+              }
+            }).catch(err => {
+              console.warn('Background cache population from fallback failed:', err);
+            });
+            
+          } catch (imageError) {
+            console.warn('Failed to load images in fallback:', imageError);
+          }
+          
         } catch (fallbackError) {
-          console.warn('Categories fallback also failed:', fallbackError);
+          console.error('Both super cache and original method failed:', fallbackError);
+          
+          // Final fallback: try to fetch categories at least
+          try {
+            await fetchCategories();
+          } catch (categoriesError) {
+            console.warn('Categories fallback also failed:', categoriesError);
+          }
         }
+        
         setLoadingBooks(false);
       }
     };
