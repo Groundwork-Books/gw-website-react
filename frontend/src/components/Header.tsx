@@ -92,7 +92,7 @@ export default function Header() {
               </>
             ) : (
               <Link
-                href="/login"
+                href="/no-account"
                 className="hover:text-gw-green-2 transition-colors flex items-center"
                 aria-label="Sign In"
               >

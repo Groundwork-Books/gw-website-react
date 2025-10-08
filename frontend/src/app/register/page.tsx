@@ -5,6 +5,10 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import Image from 'next/image';
+import FAQAccordion from '@/components/FAQAccordion';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -43,81 +47,124 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center mb-4">
-            <Link 
-              href="/"
-              className="text-blue-600 hover:text-blue-700 flex items-center text-sm font-medium"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Home
-            </Link>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
+    <div className="min-h-screen bg-gw-green-2">
+      <Header />
+
+      {/* Hero Section (full-bleed) */}
+      <section className="relative h-[200px] flex items-center justify-center isolate">
+        {/* Background image */}
+        <div className="rounded-lg overflow-hidden">
+          <Image
+            src="/images/hero/book-collage.jpg"
+            alt="Book collage background"
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm password"
-              />
-            </div>
-          </div>
+        {/* Optional overlay for readability */}
+        <div className="absolute inset-0 " />
 
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? 'Creating account...' : 'Sign up'}
-            </button>
+        {/* Content */}
+        <div className="relative z-10 w-full px-4">
+          <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
+            <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+              Account
+            </h1>
           </div>
+        </div>
+      </section>
 
-          <div className="text-center">
-            <Link href="/login" className="text-indigo-600 hover:text-indigo-500">
-              Already have an account? Sign in
-            </Link>
-          </div>
-        </form>
+    <div className="py-20">
+  <div className="max-w-2xl mx-auto bg-white shadow-md p-6 flex justify-center">
+    <div className="max-w-md w-full space-y-8">
+      <div>
+        <h2 className="mt-6 text-center text-4xl font-extrabold text-gw-green-1 font-calluna">
+          Create your account
+        </h2>
       </div>
+
+      <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <div className="space-y-4">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                       px-5 text-gw-green-1 placeholder:text-gw-green-1/60
+                       focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
+            placeholder="Email address"
+          />
+
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                       px-5 text-gw-green-1 placeholder:text-gw-green-1/60
+                       focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
+            placeholder="Password"
+          />
+
+          <input
+            type="password"
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="block w-full h-12 rounded-full border-2 border-gw-green-1 bg-white
+                       px-5 text-gw-green-1 placeholder:text-gw-green-1/60
+                       focus:outline-none focus:ring-2 focus:ring-gw-green-1/30 font-calluna"
+            placeholder="Confirm password"
+          />
+        </div>
+
+        {error && (
+          <div className="text-red-600 text-sm text-center">{error}</div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex w-full h-12 items-center justify-center rounded-full
+                          bg-gw-green-1 text-white font-semibold shadow
+                          transition-colors hover:bg-gw-green-3
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gw-green-1
+                          disabled:opacity-50 font-calluna"
+        >
+          {loading ? 'Creating account...' : 'Sign up'}
+        </button>
+
+        <div className="mt-2 flex justify-center">
+          <Link
+            href="/login"
+            className="text-gw-green-1 font-calluna hover:underline text-sm font-medium"
+          >
+            Already have an account? Sign in
+          </Link>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+      {/* FAQ Section */}
+      <div className = "pt-20 bg-white flex justify-center">
+        <h2 className="font-calluna text-2xl font-extrabold text-gw-green-1">
+          Frequently Asked Questions
+        </h2>
+      </div>
+      <div className = "pt-4 bg-white flex justify-center">
+        <h3 className="font-calluna text-black">
+            {"Can't find an answer to your question? Reach out to us at "} <a href="mailto:groundworkbookscollective@gmail.com" className="font-semibold underline">groundworkbookscollective@gmail.com</a>
+        </h3>
+      </div>
+      <div className="py-12 bg-white">
+      <FAQAccordion/>
+      </div>
+      <Footer />
     </div>
   );
 }

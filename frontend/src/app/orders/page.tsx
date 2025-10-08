@@ -41,7 +41,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/no-account');
     }
   }, [user, authLoading, router]);
 
