@@ -70,33 +70,62 @@ export default function CartPage() {
         </div>
       </section>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20" >
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-            <Link
-              href="/store"
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Continue Shopping
-            </Link>
-          </div>
+      {/* Center content */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {cart.items.length === 0 ? (
+          /* EMPTY CART — match screenshot */
+          <div className="bg-white p-8 border border-gray-200 font-calluna">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-extrabold text-gw-green-1">Your Cart</h2>
+              <span className="text-xl font-extrabold text-gw-green-1">
+                {itemCount} {itemCount === 1 ? 'Item' : 'Items'}
+              </span>
+            </div>
 
-          {cart.items.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zM8 6V6a2 2 0 114 0v1H8z" clipRule="evenodd" />
+            {/* Top rule */}
+            <div className="mt-2 mb-10 border-t border-black-300" />
+
+            {/* Center content */}
+            <div className="flex flex-col items-center text-center">
+              {/* Cart icon */}
+              <svg
+                className="w-12 h-12 mb-6 text-gw-green-1"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 12.39A2 2 0 0 0 9.62 15H19a2 2 0 0 0 2-1.56l2-8H6"></path>
               </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
-              <p className="text-gray-500 mb-6">Add some books to get started!</p>
+
+              <p className="text-gw-green-1 font-extrabold text-2xl mb-6">Your cart is empty...</p>
+
               <Link
                 href="/store"
-                className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
+                className="px-20 py-3 rounded-full bg-gw-green-1 text-white font-semibold shadow hover:bg-gw-green-3 transition-colors cursor-pointer"
               >
-                Browse Books
+                Continue shopping
               </Link>
             </div>
-          ) : (
+
+            {/* Bottom rule */}
+            <div className="mt-10 border-t border-black-300" />
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
+              <Link href="/store" className="text-blue-600 hover:text-blue-700 font-medium">
+                Continue Shopping
+              </Link>
+            </div>
+
             <>
               <div className="space-y-4 mb-8">
                 {cart.items.map((item) => (
@@ -113,7 +142,11 @@ export default function CartPage() {
                           />
                         ) : (
                           <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                            <path
+                              fillRule="evenodd"
+                              d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         )}
                       </div>
@@ -132,9 +165,7 @@ export default function CartPage() {
                         >
                           -
                         </button>
-                        <span className="px-3 py-1 border-l border-r border-gray-300">
-                          {item.quantity}
-                        </span>
+                        <span className="px-3 py-1 border-l border-r border-gray-300">{item.quantity}</span>
                         <button
                           onClick={() => handleQuantityChange(item.book.id, item.quantity + 1)}
                           className="px-3 py-1 text-gray-600 hover:text-gray-800"
@@ -155,7 +186,11 @@ export default function CartPage() {
                         title="Remove item"
                       >
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -171,9 +206,7 @@ export default function CartPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">
-                      Total: ${cart.total.toFixed(2)}
-                    </p>
+                    <p className="text-lg font-semibold text-gray-900">Total: ${cart.total.toFixed(2)}</p>
                   </div>
                 </div>
 
@@ -193,8 +226,8 @@ export default function CartPage() {
                 </div>
               </div>
             </>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <Footer />
     </div>
