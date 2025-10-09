@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
+import { Book } from '@/lib/types';
 
 interface PerformanceResult {
   categoryId: string;
@@ -63,16 +64,56 @@ interface CacheStatusResponse {
   error?: string;
 }
 
+interface SuperCacheTestResult {
+  superCacheTime: number;
+  normalFlowTime: number;
+  superCacheSuccess: boolean;
+  normalFlowSuccess: boolean;
+  superCacheDataComplete: boolean;
+  normalFlowDataComplete: boolean;
+  speedImprovement: string;
+  performanceMultiplier: string;
+  testTime: string;
+  superCacheStatus: 'HIT' | 'MISS' | 'ERROR';
+  dataComparison: {
+    superCacheBooks: number;
+    normalFlowBooks: number;
+    superCacheCategories: number;
+    normalFlowCategories: number;
+    superCacheImages: number;
+    normalFlowImages: number;
+  };
+}
+
+interface BookData {
+  books: Book[];
+}
+
+interface NormalFlowData {
+  categories: Category[];
+  books: Record<string, Book[]>;
+}
+
+interface SuperCacheData {
+  categories?: Category[];
+  metadata?: {
+    totalBooks?: number;
+    imagesCount?: number;
+  };
+}
+
 export default function CacheMonitorPage() {
   const { user } = useAuth();
   const [redisStatus, setRedisStatus] = useState<CacheStatusResponse | null>(null);
   const [performanceResult, setPerformanceResult] = useState<PerformanceResult | null>(null);
+  const [superCacheResult, setSuperCacheResult] = useState<SuperCacheTestResult | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [apiResults, setApiResults] = useState<ApiTestResult[]>([]);
   const [categoriesLastUpdated, setCategoriesLastUpdated] = useState<string | null>(null);
   const [loading, setLoading] = useState({
     redisStatus: false,
     performance: false,
+    superCacheTest: false,
     categories: false,
     apiTest: false,
     cacheInvalidation: false,
@@ -218,6 +259,236 @@ export default function CacheMonitorPage() {
       alert('Performance test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setLoading(prev => ({ ...prev, performance: false }));
+    }
+  };
+
+  // Function to test Super Cache vs Normal Flow performance
+  const runSuperCacheTest = async () => {
+    setLoading(prev => ({ ...prev, superCacheTest: true }));
+    
+    try {
+      console.log('Starting Super Cache vs Normal Flow performance test...');
+      
+      // Step 1: Clear all relevant caches to ensure fair comparison
+      console.log('Clearing caches for fair comparison...');
+      await fetch('/api/cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + btoa('admin:change_me_in_production')
+        },
+        body: JSON.stringify({ scope: 'all' })
+      });
+
+      // Small delay to ensure cache clearing is complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 2: Test Normal Flow (original getInitialStoreData method)
+      console.log('Testing normal flow performance...');
+      const normalFlowStart = Date.now();
+      let normalFlowSuccess = false;
+      let normalFlowData: NormalFlowData | null = null;
+      
+      try {
+        // Simulate what the store page does with getInitialStoreData
+        const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+        
+        // We'll call the individual APIs that getInitialStoreData calls
+        const [categoriesResponse, ...categoryResponses] = await Promise.all([
+          fetch('/api/square/categories'),
+          ...categoryIds.slice(0, 3).map(id => fetch(`/api/square/category/${id}`)) // Test first 3 categories
+        ]);
+        
+        const categoriesData = await categoriesResponse.json();
+        const booksData: BookData[] = await Promise.all(categoryResponses.map(r => r.json()));
+        
+        normalFlowData = {
+          categories: categoriesData.categories || [],
+          books: booksData.reduce((acc, data, index) => {
+            acc[categoryIds[index]] = data.books || [];
+            return acc;
+          }, {} as Record<string, Book[]>)
+        };
+        
+        normalFlowSuccess = true;
+      } catch (error) {
+        console.error('Normal flow test failed:', error);
+        normalFlowSuccess = false;
+      }
+      
+      const normalFlowTime = Date.now() - normalFlowStart;
+
+      // Step 3: Test Super Cache (first call will be cache miss, then cache hit)
+      console.log('Testing super cache performance...');
+      
+      // First call - cache miss (will populate cache)
+      const superCacheMissStart = Date.now();
+      let superCacheResponse = await fetch('/api/store/super-cache');
+      let superCacheData: SuperCacheData = await superCacheResponse.json();
+      const superCacheMissTime = Date.now() - superCacheMissStart;
+      
+      console.log(`Cache miss took ${superCacheMissTime}ms`);
+      
+      // Small delay to ensure cache is populated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Second call - cache hit
+      const superCacheHitStart = Date.now();
+      superCacheResponse = await fetch('/api/store/super-cache');
+      superCacheData = await superCacheResponse.json();
+      const superCacheHitTime = Date.now() - superCacheHitStart;
+      
+      const superCacheTime = superCacheHitTime; // Use the cache hit time for comparison
+      const superCacheSuccess = superCacheResponse.ok;
+      const cacheStatus = superCacheResponse.headers.get('X-Cache-Status') as 'HIT' | 'MISS' | 'ERROR' || 'ERROR';
+
+      // Step 4: Analyze and compare data completeness
+      const normalFlowBooks = normalFlowData ? Object.values(normalFlowData.books).flat().length : 0;
+      const normalFlowCategories = normalFlowData ? normalFlowData.categories.length : 0;
+      const normalFlowImages = normalFlowData ? Object.values(normalFlowData.books).flat().filter((book: Book) => book.imageUrl).length : 0;
+      
+      const superCacheBooks = superCacheData.metadata?.totalBooks || 0;
+      const superCacheCategories = superCacheData.categories?.length || 0;
+      const superCacheImages = superCacheData.metadata?.imagesCount || 0;
+      
+      const superCacheDataComplete = superCacheBooks > 0 && superCacheCategories > 0;
+      const normalFlowDataComplete = normalFlowBooks > 0 && normalFlowCategories > 0;
+
+      // Step 5: Calculate performance metrics
+      const speedImprovement = normalFlowTime > 0 ? ((normalFlowTime - superCacheTime) / normalFlowTime * 100).toFixed(1) : '0.0';
+      const performanceMultiplier = superCacheTime > 0 ? (normalFlowTime / superCacheTime).toFixed(1) : 'N/A';
+
+      const result: SuperCacheTestResult = {
+        superCacheTime,
+        normalFlowTime,
+        superCacheSuccess,
+        normalFlowSuccess,
+        superCacheDataComplete,
+        normalFlowDataComplete,
+        speedImprovement: `${speedImprovement}%`,
+        performanceMultiplier: `${performanceMultiplier}x`,
+        testTime: new Date().toISOString(),
+        superCacheStatus: cacheStatus,
+        dataComparison: {
+          superCacheBooks,
+          normalFlowBooks,
+          superCacheCategories,
+          normalFlowCategories,
+          superCacheImages,
+          normalFlowImages
+        }
+      };
+
+      console.log('Super Cache test completed:', result);
+      setSuperCacheResult(result);
+      
+    } catch (error) {
+      console.error('Super Cache test failed:', error);
+      alert('Super Cache test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setLoading(prev => ({ ...prev, superCacheTest: false }));
+    }
+  };
+
+  // Function to test cache warmup performance
+  const testCacheWarmup = async () => {
+    setLoading(prev => ({ ...prev, superCacheTest: true }));
+    
+    try {
+      console.log('Starting cache warmup performance test...');
+      
+      // Step 1: Clear super cache to start fresh
+      console.log('Clearing super cache...');
+      await fetch('/api/cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + btoa('admin:change_me_in_production')
+        },
+        body: JSON.stringify({ scope: 'super-cache' })
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 2: Test cache miss (cold start) - this should trigger cache population
+      console.log('Testing cache miss (cold start)...');
+      const coldStart = Date.now();
+      const coldResponse = await fetch('/api/store/super-cache');
+      const coldData = await coldResponse.json();
+      const coldTime = Date.now() - coldStart;
+      const coldCacheStatus = coldResponse.headers.get('X-Cache-Status');
+
+      // Step 3: Test immediate cache hit
+      console.log('Testing immediate cache hit...');
+      const warmStart = Date.now();
+      const warmResponse = await fetch('/api/store/super-cache');
+      const warmData = await warmResponse.json();
+      const warmTime = Date.now() - warmStart;
+      const warmCacheStatus = warmResponse.headers.get('X-Cache-Status');
+
+      // Step 4: Test multiple consecutive cache hits to verify consistency
+      console.log('Testing cache consistency with multiple hits...');
+      const consistencyTests = [];
+      for (let i = 0; i < 5; i++) {
+        const start = Date.now();
+        const response = await fetch('/api/store/super-cache');
+        const time = Date.now() - start;
+        const status = response.headers.get('X-Cache-Status');
+        consistencyTests.push({ time, status });
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between tests
+      }
+
+      const avgConsistencyTime = consistencyTests.reduce((sum, test) => sum + test.time, 0) / consistencyTests.length;
+
+      // Calculate improvement metrics
+      const warmupImprovement = coldTime > 0 ? ((coldTime - warmTime) / coldTime * 100).toFixed(1) : '0.0';
+      const warmupMultiplier = warmTime > 0 ? (coldTime / warmTime).toFixed(1) : 'N/A';
+
+      const result: SuperCacheTestResult = {
+        superCacheTime: warmTime,
+        normalFlowTime: coldTime,
+        superCacheSuccess: warmResponse.ok,
+        normalFlowSuccess: coldResponse.ok,
+        superCacheDataComplete: (warmData.metadata?.totalBooks || 0) > 0,
+        normalFlowDataComplete: (coldData.metadata?.totalBooks || 0) > 0,
+        speedImprovement: `${warmupImprovement}%`,
+        performanceMultiplier: `${warmupMultiplier}x`,
+        testTime: new Date().toISOString(),
+        superCacheStatus: (warmCacheStatus as 'HIT' | 'MISS' | 'ERROR') || 'ERROR',
+        dataComparison: {
+          superCacheBooks: warmData.metadata?.totalBooks || 0,
+          normalFlowBooks: coldData.metadata?.totalBooks || 0,
+          superCacheCategories: warmData.categories?.length || 0,
+          normalFlowCategories: coldData.categories?.length || 0,
+          superCacheImages: warmData.metadata?.imagesCount || 0,
+          normalFlowImages: coldData.metadata?.imagesCount || 0
+        }
+      };
+
+      console.log('Cache warmup test completed:', {
+        ...result,
+        coldCacheStatus,
+        consistencyResults: {
+          avgTime: avgConsistencyTime.toFixed(1),
+          allHits: consistencyTests.every(test => test.status === 'HIT')
+        }
+      });
+
+      setSuperCacheResult(result);
+      
+      // Show additional warmup info in console
+      console.log('Warmup test details:', {
+        coldStart: `${coldTime}ms (${coldCacheStatus})`,
+        warmStart: `${warmTime}ms (${warmCacheStatus})`,
+        consistency: `${avgConsistencyTime.toFixed(1)}ms avg over 5 tests`,
+        allCacheHits: consistencyTests.every(test => test.status === 'HIT')
+      });
+      
+    } catch (error) {
+      console.error('Cache warmup test failed:', error);
+      alert('Cache warmup test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setLoading(prev => ({ ...prev, superCacheTest: false }));
     }
   };
 
@@ -577,6 +848,119 @@ export default function CacheMonitorPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Super Cache vs Normal Flow Performance Test Section */}
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Super Cache Performance Test</h2>
+                  <p className="text-sm text-gray-600">Compare super cache speed vs normal store loading flow</p>
+                </div>
+                <div className="space-x-2">
+                  <button
+                    onClick={runSuperCacheTest}
+                    disabled={loading.superCacheTest}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
+                  >
+                    {loading.superCacheTest ? 'Testing...' : 'Test Super Cache'}
+                  </button>
+                  <button
+                    onClick={testCacheWarmup}
+                    disabled={loading.superCacheTest}
+                    className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 disabled:bg-gray-400"
+                  >
+                    Test Cache Warmup
+                  </button>
+                </div>
+              </div>
+
+              {loading.superCacheTest && (
+                <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-3"></div>
+                    <span className="text-indigo-800 text-sm">Running super cache performance test...</span>
+                  </div>
+                </div>
+              )}
+
+              {superCacheResult && (
+                <div className="bg-white rounded-lg p-4 border">
+                  <h3 className="font-medium text-gray-900 mb-3">Super Cache Test Results</h3>
+                  
+                  {/* Performance Comparison */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="p-3 bg-orange-50 rounded border-l-4 border-orange-500">
+                      <p className="text-sm font-medium text-gray-600">Normal Flow</p>
+                      <p className="text-lg font-bold text-orange-600">{superCacheResult.normalFlowTime}ms</p>
+                      <p className="text-xs text-gray-500">{superCacheResult.normalFlowSuccess ? '✅ Success' : '❌ Failed'}</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded border-l-4 border-green-500">
+                      <p className="text-sm font-medium text-gray-600">Super Cache</p>
+                      <p className="text-lg font-bold text-green-600">{superCacheResult.superCacheTime}ms</p>
+                      <p className="text-xs text-gray-500">{superCacheResult.superCacheSuccess ? '✅ Success' : '❌ Failed'}</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 rounded border-l-4 border-blue-500">
+                      <p className="text-sm font-medium text-gray-600">Speed Improvement</p>
+                      <p className="text-lg font-bold text-blue-600">{superCacheResult.speedImprovement}</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded border-l-4 border-purple-500">
+                      <p className="text-sm font-medium text-gray-600">Performance Boost</p>
+                      <p className="text-lg font-bold text-purple-600">{superCacheResult.performanceMultiplier}</p>
+                    </div>
+                  </div>
+
+                  {/* Cache Status */}
+                  <div className="mb-4 p-3 rounded border-l-4 border-gray-500 bg-gray-50">
+                    <p className="text-sm font-medium text-gray-600">Cache Status</p>
+                    <p className={`text-lg font-bold ${
+                      superCacheResult.superCacheStatus === 'HIT' ? 'text-green-600' : 
+                      superCacheResult.superCacheStatus === 'MISS' ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {superCacheResult.superCacheStatus}
+                    </p>
+                  </div>
+
+                  {/* Data Completeness Comparison */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Data Completeness Comparison</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Books</p>
+                        <div className="flex justify-center items-center space-x-2 mt-1">
+                          <span className="text-lg font-bold text-orange-600">{superCacheResult.dataComparison.normalFlowBooks}</span>
+                          <span className="text-gray-400">vs</span>
+                          <span className="text-lg font-bold text-green-600">{superCacheResult.dataComparison.superCacheBooks}</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Categories</p>
+                        <div className="flex justify-center items-center space-x-2 mt-1">
+                          <span className="text-lg font-bold text-orange-600">{superCacheResult.dataComparison.normalFlowCategories}</span>
+                          <span className="text-gray-400">vs</span>
+                          <span className="text-lg font-bold text-green-600">{superCacheResult.dataComparison.superCacheCategories}</span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-gray-600">Images</p>
+                        <div className="flex justify-center items-center space-x-2 mt-1">
+                          <span className="text-lg font-bold text-orange-600">{superCacheResult.dataComparison.normalFlowImages}</span>
+                          <span className="text-gray-400">vs</span>
+                          <span className="text-lg font-bold text-green-600">{superCacheResult.dataComparison.superCacheImages}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Test Metadata */}
+                  <div className="mt-4 pt-3 border-t flex justify-between text-sm text-gray-600">
+                    <span>Normal Flow Complete: {superCacheResult.normalFlowDataComplete ? '✅' : '❌'}</span>
+                    <span>Super Cache Complete: {superCacheResult.superCacheDataComplete ? '✅' : '❌'}</span>
+                    <span>Tested: {new Date(superCacheResult.testTime).toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* API Response Times Section */}
