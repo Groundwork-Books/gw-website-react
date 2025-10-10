@@ -97,7 +97,7 @@ const SUPER_CACHE_KEY = 'store:super-cache';
 const SUPER_CACHE_TTL = 60*60*1; // 1 hour
 
 // Enable Vercel server-side caching for the GET endpoint only
-export const revalidate = 60*15; // 15 minutes for GET responses
+export const revalidate = 900; // 15 minutes for GET responses
 
 // Default categories from environment variables
 const DEFAULT_CATEGORY_IDS = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
