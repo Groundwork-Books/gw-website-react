@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCachedBooksByCategory, setCachedBooksByCategory } from '@/lib/redis';
+import { getCachedCategoryBooks, setCachedCategoryBooks } from '@/lib/redis';
 
 // Square item types for this route
 interface SquareMoneyAmount {
@@ -121,12 +121,18 @@ export async function POST(request: NextRequest) {
     const uncachedCategoryIds: string[] = [];
     
     for (const categoryId of categoryIds) {
-      const cacheKey = `${categoryId}:limit:${limit}`;
-      const cached = await getCachedBooksByCategory(cacheKey);
+      const cached = await getCachedCategoryBooks(categoryId);
       if (cached) {
+        // Apply limit filtering to cached results
+        const allBooks = cached.books as ProcessedBook[];
+        const limitedBooks = limit ? allBooks.slice(0, limit) : allBooks;
+        
         cachedResults[categoryId] = {
-          books: cached.books as ProcessedBook[],
-          metadata: cached.metadata
+          books: limitedBooks,
+          metadata: {
+            totalBooks: limitedBooks.length,
+            booksWithImageIds: limitedBooks.filter(book => book.imageId).length
+          }
         };
       } else {
         uncachedCategoryIds.push(categoryId);
@@ -141,8 +147,8 @@ export async function POST(request: NextRequest) {
         const data = await fetchSquareAPI('/v2/catalog/search-catalog-items', {
           method: 'POST',
           body: JSON.stringify({
-            category_ids: [categoryId],
-            limit: limit
+            category_ids: [categoryId]
+            // Note: No limit in API request - we cache all books and apply limit on retrieval
           }),
         });
 
@@ -156,8 +162,7 @@ export async function POST(request: NextRequest) {
             }
           };
           // Cache empty results
-          const cacheKey = `${categoryId}:limit:${limit}`;
-          await setCachedBooksByCategory(cacheKey, { 
+          await setCachedCategoryBooks(categoryId, { 
             books: [], 
             metadata: { totalBooks: 0, booksWithImageIds: 0 } 
           });
@@ -186,17 +191,7 @@ export async function POST(request: NextRequest) {
         const booksWithoutImages = books.filter((book: ProcessedBook) => !book.imageId);
         const sortedBooks = [...booksWithImages, ...booksWithoutImages];
 
-        const result = { 
-          categoryId, 
-          books: sortedBooks,
-          metadata: {
-            totalBooks: sortedBooks.length,
-            booksWithImageIds: booksWithImages.length
-          }
-        };
-
-        // Cache the result
-        const cacheKey = `${categoryId}:limit:${limit}`;
+        // Cache all books for this category (no limit applied to cache)
         const cacheData = { 
           books: sortedBooks, 
           metadata: { 
@@ -204,7 +199,19 @@ export async function POST(request: NextRequest) {
             booksWithImageIds: booksWithImages.length 
           } 
         };
-        await setCachedBooksByCategory(cacheKey, cacheData);
+        await setCachedCategoryBooks(categoryId, cacheData);
+
+        // Apply limit for response
+        const limitedBooks = limit ? sortedBooks.slice(0, limit) : sortedBooks;
+        
+        const result = { 
+          categoryId, 
+          books: limitedBooks,
+          metadata: {
+            totalBooks: limitedBooks.length,
+            booksWithImageIds: limitedBooks.filter(book => book.imageId).length
+          }
+        };
 
         return result;
       } catch (error) {

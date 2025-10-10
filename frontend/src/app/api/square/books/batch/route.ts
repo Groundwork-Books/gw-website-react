@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCachedBooksData, setCachedBooksData } from '@/lib/redis';
 
 const SQUARE_BASE_URL = process.env.SQUARE_ENVIRONMENT === 'production' 
   ? 'https://connect.squareup.com' 
@@ -102,92 +101,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many book IDs. Maximum is 1000.' }, { status: 400 });
     }
 
-    console.log(`Batch retrieving ${bookIds.length} books - checking cache first`);
+    console.log(`Batch retrieving ${bookIds.length} books from Square API`);
 
-    // Check cache for each book individually
-    const cachedBooks: Record<string, Book> = {};
-    const uncachedBookIds: string[] = [];
-    
-    await Promise.all(
-      bookIds.map(async (bookId: string) => {
-        try {
-          const cachedBook = await getCachedBooksData(bookId);
-          if (cachedBook) {
-            cachedBooks[bookId] = cachedBook as Book;
-          } else {
-            uncachedBookIds.push(bookId);
-          }
-        } catch (error) {
-          console.warn(`Cache check failed for book ${bookId}:`, error);
-          uncachedBookIds.push(bookId);
-        }
-      })
-    );
-    
-    console.log(`Cache hits: ${Object.keys(cachedBooks).length}, Cache misses: ${uncachedBookIds.length}`);
-
-    let freshBooks: Book[] = [];
     const errors: Array<{ code?: string; detail?: string; category?: string }> = [];
 
-    // Only fetch uncached books from Square API
-    if (uncachedBookIds.length > 0) {
-      console.log(`Fetching ${uncachedBookIds.length} uncached books from Square API`);
-      
-      const data: BatchRetrieveResponse = await fetchSquareAPI('/v2/catalog/batch-retrieve', {
-        method: 'POST',
-        body: JSON.stringify({
-          object_ids: uncachedBookIds,
-          include_related_objects: false
-        }),
-      });
+    const data: BatchRetrieveResponse = await fetchSquareAPI('/v2/catalog/batch-retrieve', {
+      method: 'POST',
+      body: JSON.stringify({
+        object_ids: bookIds,
+        include_related_objects: false
+      }),
+    });
 
-      if (data?.errors) {
-        errors.push(...data.errors);
-      }
-
-      if (data?.objects) {
-        // Transform Square catalog items to our book format
-        freshBooks = data.objects
-          .filter((item: SquareCatalogItem) => item.type === 'ITEM')
-          .map((item: SquareCatalogItem): Book => {
-            const itemData = item.item_data;
-            const variation = itemData?.variations?.[0];
-            const price = variation?.item_variation_data?.price_money;
-
-            return {
-              id: item.id,
-              name: itemData?.name || 'Untitled Book',
-              description: itemData?.description || 'No description available',
-              price: price ? Number(price.amount) / 100 : 0,
-              currency: price?.currency || 'USD',
-              imageId: itemData?.image_ids?.[0] || undefined,
-            };
-          });
-
-        // Cache the freshly fetched books individually
-        await Promise.all(
-          freshBooks.map(async (book) => {
-            try {
-              await setCachedBooksData(book.id, book);
-            } catch (error) {
-              console.warn(`Failed to cache book ${book.id}:`, error);
-            }
-          })
-        );
-        console.log(`Cached ${freshBooks.length} newly fetched books`);
-      }
+    if (data?.errors) {
+      errors.push(...data.errors);
     }
 
-    // Combine cached and fresh books
-    const allBooks: Book[] = [
-      ...Object.values(cachedBooks),
-      ...freshBooks
-    ];
+    let books: Book[] = [];
+    if (data?.objects) {
+      // Transform Square catalog items to our book format
+      books = data.objects
+        .filter((item: SquareCatalogItem) => item.type === 'ITEM')
+        .map((item: SquareCatalogItem): Book => {
+          const itemData = item.item_data;
+          const variation = itemData?.variations?.[0];
+          const price = variation?.item_variation_data?.price_money;
 
-    console.log(`Successfully retrieved ${allBooks.length} books out of ${bookIds.length} requested (${Object.keys(cachedBooks).length} from cache, ${freshBooks.length} from API)`);
+          return {
+            id: item.id,
+            name: itemData?.name || 'Untitled Book',
+            description: itemData?.description || 'No description available',
+            price: price ? Number(price.amount) / 100 : 0,
+            currency: price?.currency || 'USD',
+            imageId: itemData?.image_ids?.[0] || undefined,
+          };
+        });
+    }
+
+    console.log(`Successfully retrieved ${books.length} books out of ${bookIds.length} requested`);
 
     // Create a map for quick lookup of which IDs were not found
-    const foundIds = new Set(allBooks.map(book => book.id));
+    const foundIds = new Set(books.map(book => book.id));
     const notFoundIds = bookIds.filter((id: string) => !foundIds.has(id));
 
     if (notFoundIds.length > 0) {
@@ -195,11 +149,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      books: allBooks,
-      total: allBooks.length,
+      books: books,
+      total: books.length,
       requested: bookIds.length,
-      cached: Object.keys(cachedBooks).length,
-      fetched: freshBooks.length,
       notFound: notFoundIds,
       errors: errors
     });
