@@ -10,7 +10,7 @@ export default function FAQList({ items = defaultItems }: { items?: FAQ[] }) {
   const toggle = (i: number) => setOpen(prev => (prev === i ? null : i));
 
   return (
-    <section className="mx-auto w-full max-w-3xl border-y border-gray-200 divide-y divide-gray-200">
+    <section className="mx-auto w-full px-15 max-w-3xl border-y border-gray-200 divide-y divide-gray-200">
       {items.map((item, i) => (
         <div key={i}>
           {/* Entire row is clickable */}

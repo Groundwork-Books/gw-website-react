@@ -100,7 +100,7 @@ export default function AboutUs() {
               <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Leftist
               </h2>
-              <p className="font-helvetica font-normal  leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-gw-black text-[15px] sm:text-base leading-[1.7] md:leading-[140%] col-span-2 md:col-span-1 md:col-start-3 max-w-prose">
                 Groundwork Books is proudly rooted in radical left-wing values. We believe in creating a welcoming space for people of all identities while rejecting systems 
                 of oppression like capitalism, racism, sexism, homophobia, and transphobia. 
                 Our mission is to cultivate solidarity and empower communities through education, dialogue, and collective action.
@@ -115,7 +115,7 @@ export default function AboutUs() {
                 Non-hierarchical
               </h2>
 
-              <p className="font-helvetica font-normal leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-gw-black text-[15px] sm:text-base leading-[1.7] md:leading-[140%] col-span-2 md:col-span-1 md:col-start-3 max-w-prose">
                 At Groundwork, there are no bosses or managers; just people working together as equals. Every worker has an equal voice and the freedom
                 to choose how they contribute. 
                 This ensures that our store remains a space where collaboration, respect, and autonomy guide the way we operate.
@@ -132,7 +132,7 @@ export default function AboutUs() {
               <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Non-profit
               </h2>
-              <p className="font-helvetica font-normal leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-gw-black text-[15px] sm:text-base leading-[1.7] md:leading-[140%] col-span-2 md:col-span-1 md:col-start-3 max-w-prose">
                 We do not seek profit for personal gain. Every dollar earned is reinvested into our stock and community initiatives, such as our Books Through Bars program,
                  which provides books to incarcerated people. By keeping money in service of the community, we prioritize purpose over profit.
               </p>
@@ -146,7 +146,7 @@ export default function AboutUs() {
               <h2 className="font-calluna font-black text-[28px] md:text-[35px] leading-[110%] text-gw-green-1">
                 Cooperative
               </h2>
-              <p className="font-helvetica font-normal leading-[140%] text-gw-black">
+              <p className="font-helvetica font-normal text-gw-black text-[15px] sm:text-base leading-[1.7] md:leading-[140%] col-span-2 md:col-span-1 md:col-start-3 max-w-prose">
                 Groundwork is collectively owned and operated by the people who keep it alive. Decisions are made democratically, 
                 with every worker having a say in shaping the direction of the store. 
                 This cooperative model ensures shared responsibility, collective ownership, and true community-driven work.
