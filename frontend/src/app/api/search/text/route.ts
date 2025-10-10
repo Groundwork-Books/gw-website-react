@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { 
-  getCachedSearchResults, 
-  setCachedSearchResults, 
-} from '@/lib/redis';
-import crypto from 'crypto';
 
 // Pinecone search hit interface
 interface PineconeSearchHit {
@@ -47,33 +42,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a cache key for text search specifically (different from main search)
+    // Create a normalized query for text search
     const normalizedQuery = query.trim().toLowerCase();
-    const cacheKey = crypto.createHash('md5').update(`text:${normalizedQuery}:${limit}`).digest('hex');
     
-    console.log(`Text search request for: "${normalizedQuery}" (limit: ${limit}), cache key: ${cacheKey}`);
+    console.log(`Text search request for: "${normalizedQuery}" (limit: ${limit})`);
 
-    // Check cache first
-    try {
-      const cachedResult = await getCachedSearchResults(cacheKey);
-      if (cachedResult) {
-        console.log(`Returning cached text search results for query: "${normalizedQuery}"`);
-        return NextResponse.json({
-          success: true,
-          query: normalizedQuery,
-          results: cachedResult.books,
-          total: cachedResult.totalCount,
-          searchType: 'snippets-only',
-          namespace: 'books',
-          cached: true,
-          cacheKey
-        });
-      }
-    } catch (error) {
-      console.warn('Cache retrieval failed for text search:', error);
-    }
-
-    console.log(`Cache miss, performing Pinecone text search for: "${normalizedQuery}"`);
+    console.log(`Performing Pinecone text search for: "${normalizedQuery}"`);
 
     const indexName = process.env.PINECONE_INDEX_NAME || 'books-index';
     const indexHost = process.env.PINECONE_INDEX_HOST;
@@ -110,21 +84,7 @@ export async function POST(request: NextRequest) {
       cached: false
     };
 
-    // Cache the results
-    try {
-      await setCachedSearchResults(cacheKey, {
-        books: snippets,
-        totalCount: snippets.length
-      });
-      console.log(`Cached text search results for query: "${normalizedQuery}"`);
-    } catch (error) {
-      console.warn('Failed to cache text search results:', error);
-    }
-
-    return NextResponse.json({
-      ...searchResponse,
-      cacheKey
-    });
+    return NextResponse.json(searchResponse);
 
   } catch (error) {
     console.error('Text search error:', error);
