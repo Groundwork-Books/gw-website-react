@@ -3,7 +3,7 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchComponent from '@/components/SearchComponent';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
@@ -15,6 +15,7 @@ import {
   Category
 } from '@/lib/square';
 import Image from 'next/image';
+import { flyToCart } from '@/lib/flyToCart';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -62,6 +63,7 @@ export default function BooksPage() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
+  const modalImageRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch books for selected genre (tile view)
   const fetchSelectedGenreBooks = useCallback(async () => {
@@ -455,6 +457,7 @@ export default function BooksPage() {
                   {paginationData.paginatedBooks.map((book: Book) => (
                     <div
                       key={book.id}
+                      data-book-id={book.id}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
                       onClick={() => setSelectedBook(book)}
                     >
@@ -575,6 +578,7 @@ export default function BooksPage() {
                     {books.map((book) => (
                       <div
                         key={book.id}
+                        data-book-id={book.id}
                         className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
                         onClick={() => setSelectedBook(book)}
                       >
@@ -621,6 +625,11 @@ export default function BooksPage() {
             <div className="p-4">
               <div className="flex flex-col items-center text-center">
                 {/* Book Image */}
+                <div
+                  ref={modalImageRef}
+                  data-book-image
+                  className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4"
+                >
                 <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
                   {selectedBook.imageUrl ? (
                     <div className="relative w-full h-full">
@@ -650,6 +659,7 @@ export default function BooksPage() {
                     </div>
                   )}
                 </div>
+                </div>
 
                 {/* Book Info */}
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -668,14 +678,27 @@ export default function BooksPage() {
 
                 {/* Add to Cart Button */}
                 <button
-                  onClick={() => {
-                    handleAddToCart(selectedBook);
+                  onClick={(e) => {
+                    if (user && selectedBook) {
+                      addToCart(selectedBook);
+                      // Works across all browsers, ignores OS reduced-motion for this tiny affordance:
+                      const wrap = modalImageRef.current || (e.currentTarget as HTMLElement);
+                      const imgEl = wrap.querySelector('img') as HTMLImageElement | null;
+                      flyToCart(e.currentTarget as HTMLElement, { 
+                        startSizeFromEl: wrap,
+                        endSizeFromEl: (document.querySelector('#cart-icon-anchor svg') as HTMLElement) || undefined,
+                        ghostImageSrc: imgEl?.currentSrc || imgEl?.src || selectedBook.imageUrl,
+                        ignoreReducedMotion: true
+                      });
+                    } else {
+                      handleAddToCart(selectedBook!);
+                    }
                     setSelectedBook(null);
                   }}
-                  className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
+                  className={`w-full px-6 py-3 rounded-full text-lg font-medium transition-colors ${
                     user
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                      ? 'bg-gw-green-1 hover:cursor-pointer text-white'
+                      : 'bg-gw-green-2 hover:cursor-pointer text-gray-700 border border-gray-300'
                   }`}
                 >
                   {user ? 'Add to Cart' : 'Login to Purchase'}

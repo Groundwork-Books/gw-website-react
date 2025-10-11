@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
 import { useCart } from '@/lib/CartContext';
@@ -9,9 +9,38 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
   const { itemCount } = useCart();
+  const [flash, setFlash] = useState(false);
+  const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const DEFAULT_DELAY_MS = 0;
+  const DEFAULT_FLASH_MS = 1500;
 
 
+  // Flash cart icon on 'cart:ping' event
+  useEffect(() => {
+    const onPing = (evt: Event) => {
+      // Allow per-event overrides, e.g. new CustomEvent('cart:ping', { detail: { delayMs: 500, flashMs: 1500 } })
+      const { delayMs = DEFAULT_DELAY_MS, flashMs = DEFAULT_FLASH_MS } =
+        (evt as CustomEvent<{ delayMs?: number; flashMs?: number }>).detail || {};
 
+      if (startTimer.current) clearTimeout(startTimer.current);
+      if (stopTimer.current)  clearTimeout(stopTimer.current);
+
+      // wait, then show ✓
+      startTimer.current = setTimeout(() => {
+        setFlash(true);
+        // hide ✓ after flashMs
+        stopTimer.current = setTimeout(() => setFlash(false), Math.max(0, flashMs));
+      }, Math.max(0, delayMs));
+    };
+
+    window.addEventListener('cart:ping', onPing as EventListener);
+    return () => {
+      window.removeEventListener('cart:ping', onPing as EventListener);
+      if (startTimer.current) clearTimeout(startTimer.current);
+      if (stopTimer.current)  clearTimeout(stopTimer.current);
+    };
+  }, []);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -34,7 +63,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16 w-full">
           {/* Logo - positioned to the far left */}
           <div className="flex-shrink-0 top-1.5">
-            <Link href="/" className=" text-2xl font-calluna font-black">
+            <Link href="/" className="text-2xl font-calluna font-black">
               Groundwork Books
             </Link>
           </div>
@@ -107,21 +136,20 @@ export default function Header() {
               className="relative flex items-center hover:text-gw-green-2 transition-colors"
             >
               <Link
+                id="cart-icon-anchor"
                 href="/cart"
-                className="relative flex items-center"
+                className="relative flex items-center pr-3"
                 aria-label="View cart"
               >
-                <svg
-                  width="22"
-                  height="21"
-                  viewBox="0 0 22 21"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="align-middle"
-                  style={{ display: 'block' }}
-                >
-                  <path d="M4.0625 3.4858H19.6655C20.4573 3.4858 20.935 4.3622 20.506 5.02764L17.5907 9.5496C17.2225 10.1208 16.5894 10.4659 15.9098 10.4659H8M8 10.4659L6.29897 12.8783C5.83185 13.5407 6.30564 14.4545 7.11623 14.4545H19.25M8 10.4659L3.51139 2.50883C3.15682 1.88027 2.49111 1.49148 1.76944 1.49148H1.25M8 18.4432C8 18.9939 7.49632 19.4403 6.875 19.4403C6.25368 19.4403 5.75 18.9939 5.75 18.4432C5.75 17.8925 6.25368 17.446 6.875 17.446C7.49632 17.446 8 17.8925 8 18.4432ZM19.25 18.4432C19.25 18.9939 18.7463 19.4403 18.125 19.4403C17.5037 19.4403 17 18.9939 17 18.4432C17 17.8925 17.5037 17.446 18.125 17.446C18.7463 17.446 19.25 17.8925 19.25 18.4432Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                {flash ? (
+                  <svg width="22" height="21" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 7L10 17l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  <svg width="22" height="21" viewBox="0 0 22 21" fill="none" xmlns="http://www.w3.org/2000/svg" className="align-middle" style={{ display: 'block' }}>
+                    <path d="M4.0625 3.4858H19.6655C20.4573 3.4858 20.935 4.3622 20.506 5.02764L17.5907 9.5496C17.2225 10.1208 16.5894 10.4659 15.9098 10.4659H8M8 10.4659L6.29897 12.8783C5.83185 13.5407 6.30564 14.4545 7.11623 14.4545H19.25M8 10.4659L3.51139 2.50883C3.15682 1.88027 2.49111 1.49148 1.76944 1.49148H1.25M8 18.4432C8 18.9939 7.49632 19.4403 6.875 19.4403C6.25368 19.4403 5.75 18.9939 5.75 18.4432C5.75 17.8925 6.25368 17.446 6.875 17.446C7.49632 17.446 8 17.8925 8 18.4432ZM19.25 18.4432C19.25 18.9939 18.7463 19.4403 18.125 19.4403C17.5037 19.4403 17 18.9939 17 18.4432C17 17.8925 17.5037 17.446 18.125 17.446C18.7463 17.446 19.25 17.8925 19.25 18.4432Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}<br />
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
                     {itemCount}
