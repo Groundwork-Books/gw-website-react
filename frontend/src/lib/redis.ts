@@ -5,6 +5,8 @@ export const CACHE_TTL = {
   CATEGORIES: 60 * 60 * 24 * 20, // 20 days
   BOOKS_BY_CATEGORY: 60 * 60 * 24 * 10, // 10 days
   IMAGE_URLS: 60 * 60 * 24 * 7, // 7 days - URLs may expire
+  INSTAGRAM: 60 * 60 * 24 * 20, // 20 days
+  COMMUNITY_EVENTS: 60 * 60 * 24 * 7, // 7 days
 } as const;
 
 // Cache key prefixes for organization
@@ -12,6 +14,8 @@ export const CACHE_KEYS = {
   CATEGORIES: 'categories',
   BOOKS_BY_CATEGORY: 'books:category',
   IMAGE_URLS: 'image_urls',
+  INSTAGRAM: 'instagram',
+  COMMUNITY_EVENTS: 'community_events',
 } as const;
 
 // Upstash Redis configuration from environment variables
@@ -159,6 +163,22 @@ export async function getCachedCategories(): Promise<Array<{id: string, name: st
 
 export async function setCachedCategories(data: Array<{id: string, name: string}>): Promise<boolean> {
   return await setCachedData(CACHE_KEYS.CATEGORIES, data, CACHE_TTL.CATEGORIES);
+}
+
+export async function getCachedInstagram(): Promise<Array<{postUrl: string, altText: string, order: number, active: boolean}> | null> {
+  return await getCachedData<Array<{postUrl: string, altText: string, order: number, active: boolean}>>(CACHE_KEYS.INSTAGRAM);
+}
+
+export async function setCachedInstagram(data: Array<{postUrl: string, altText: string, order: number, active: boolean}>): Promise<boolean> {
+  return await setCachedData(CACHE_KEYS.INSTAGRAM, data, CACHE_TTL.INSTAGRAM);
+}
+
+export async function getCachedCommunityEvents(): Promise<Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}> | null> {
+  return await getCachedData<Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}>>(CACHE_KEYS.COMMUNITY_EVENTS);
+}
+
+export async function setCachedCommunityEvents(data: Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}>): Promise<boolean> {
+  return await setCachedData(CACHE_KEYS.COMMUNITY_EVENTS, data, CACHE_TTL.COMMUNITY_EVENTS);
 }
 
 // NEW: Category-specific cache functions (structured cache per category)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getCachedInstagram, setCachedInstagram } from '@/lib/redis';
 
 // Fallback data if sheets are unavailable
 const fallbackInstagramPosts = [
@@ -7,7 +8,7 @@ const fallbackInstagramPosts = [
     postUrl: 'https://www.instagram.com/p/C3CYLGrLK8F/',
     altText: 'Groundwork Books community post',
     order: 1,
-    active: true
+    active: false
   },
   {
     postUrl: 'https://www.instagram.com/p/DKaqRZjS--b/',
@@ -81,6 +82,13 @@ interface InstagramPost {
 
 export async function GET() {
   try {
+    const cachedInstagram = await getCachedInstagram();
+    if (cachedInstagram) {
+      console.warn('Returning cached Instagram posts');
+      return NextResponse.json(cachedInstagram);
+    }
+
+    console.error('Cache miss - fetching Instagram posts from Google Sheets');
     const sheets = getGoogleSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -95,7 +103,7 @@ export async function GET() {
     });
 
     const rows = response.data.values;
-    
+
     if (!rows || rows.length === 0) {
       console.warn('No Instagram data found in sheets, using fallback');
       return NextResponse.json(fallbackInstagramPosts);
@@ -111,7 +119,12 @@ export async function GET() {
       .filter((post: InstagramPost) => post.postUrl && post.active)
       .sort((a: InstagramPost, b: InstagramPost) => a.order - b.order);
 
-    return NextResponse.json(posts.length > 0 ? posts : fallbackInstagramPosts);
+    const finalPosts = posts.length > 0 ? posts : fallbackInstagramPosts;
+
+    await setCachedInstagram(finalPosts);
+    console.warn(`Cached ${finalPosts.length} Instagram posts`);
+
+    return NextResponse.json(finalPosts);
 
   } catch (error) {
     console.error('Error fetching Instagram posts from sheets:', error);

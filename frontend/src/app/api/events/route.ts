@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getCachedCommunityEvents, setCachedCommunityEvents } from '@/lib/redis';
 
 // Fallback data if sheets are unavailable
 const fallbackEvents = [
@@ -63,6 +64,13 @@ interface Event {
 
 export async function GET() {
   try {
+    const cachedEvents = await getCachedCommunityEvents();
+    if (cachedEvents) {
+      console.warn('Returning cached community events');
+      return NextResponse.json(cachedEvents);
+    }
+
+    console.error('Cache miss - fetching community events from Google Sheets');
     const sheets = getGoogleSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
@@ -77,7 +85,7 @@ export async function GET() {
     });
 
     const rows = response.data.values;
-    
+
     if (!rows || rows.length === 0) {
       console.warn('No Events data found in sheets, using fallback');
       return NextResponse.json(fallbackEvents);
@@ -95,7 +103,12 @@ export async function GET() {
       }))
       .filter((event: Event) => event.eventName && event.active);
 
-    return NextResponse.json(events.length > 0 ? events : fallbackEvents);
+    const finalEvents = events.length > 0 ? events : fallbackEvents;
+
+    await setCachedCommunityEvents(finalEvents);
+    console.warn(`Cached ${finalEvents.length} community events`);
+
+    return NextResponse.json(finalEvents);
 
   } catch (error) {
     console.error('Error fetching events from sheets:', error);

@@ -169,7 +169,7 @@ export default function Home() {
             Follow Our Instagram
           </h2>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {isClient && !loading ? (
               // Show Instagram posts immediately as they load individually
               instagramPosts.map((post, index) => (
@@ -178,7 +178,7 @@ export default function Home() {
                   className="flex justify-center opacity-0 animate-slide-up"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <div className="w-full max-w-[328px] group cursor-pointer" suppressHydrationWarning={true}>
+                  <div className="w-full max-w-[350px] group cursor-pointer" suppressHydrationWarning={true}>
                     <div className="transform transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg rounded-xl overflow-hidden">
                       <InstagramEmbed 
                         url={post.postUrl} 
