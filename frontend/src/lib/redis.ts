@@ -4,18 +4,18 @@ import { Redis } from '@upstash/redis';
 export const CACHE_TTL = {
   CATEGORIES: 60 * 60 * 24 * 20, // 20 days
   BOOKS_BY_CATEGORY: 60 * 60 * 24 * 10, // 10 days
-  BOOK_DATA: 60 * 60 * 24 * 10, // 10 days
-  SEARCH_RESULTS: 60 * 60 * 24 * 10, // 10 days
   IMAGE_URLS: 60 * 60 * 24 * 7, // 7 days - URLs may expire
+  INSTAGRAM: 60 * 60 * 24 * 20, // 20 days
+  COMMUNITY_EVENTS: 60 * 60 * 24 * 7, // 7 days
 } as const;
 
 // Cache key prefixes for organization
 export const CACHE_KEYS = {
   CATEGORIES: 'categories',
   BOOKS_BY_CATEGORY: 'books:category',
-  BOOK_DATA: 'book',
-  SEARCH_RESULTS: 'search',
   IMAGE_URLS: 'image_urls',
+  INSTAGRAM: 'instagram',
+  COMMUNITY_EVENTS: 'community_events',
 } as const;
 
 // Upstash Redis configuration from environment variables
@@ -61,7 +61,7 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
 }
 
 // Generic cache set function with TTL
-export async function setCachedData<T>(key: string, data: T, ttl: number = CACHE_TTL.BOOK_DATA): Promise<boolean> {
+export async function setCachedData<T>(key: string, data: T, ttl: number = CACHE_TTL.BOOKS_BY_CATEGORY): Promise<boolean> {
   const success = await safeRedisOperation(async () => {
     // Upstash Redis automatically handles JSON serialization, so we don't need to stringify
     await redis.setex(key, ttl, data);
@@ -165,28 +165,29 @@ export async function setCachedCategories(data: Array<{id: string, name: string}
   return await setCachedData(CACHE_KEYS.CATEGORIES, data, CACHE_TTL.CATEGORIES);
 }
 
-export async function getCachedBooksByCategory(cacheKey: string): Promise<{books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}} | null> {
-  return await getCachedData<{books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}}>(`${CACHE_KEYS.BOOKS_BY_CATEGORY}:${cacheKey}`);
+export async function getCachedInstagram(): Promise<Array<{postUrl: string, altText: string, order: number, active: boolean}> | null> {
+  return await getCachedData<Array<{postUrl: string, altText: string, order: number, active: boolean}>>(CACHE_KEYS.INSTAGRAM);
 }
 
-export async function setCachedBooksByCategory(cacheKey: string, data: {books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}}): Promise<boolean> {
-  return await setCachedData(`${CACHE_KEYS.BOOKS_BY_CATEGORY}:${cacheKey}`, data, CACHE_TTL.BOOKS_BY_CATEGORY);
+export async function setCachedInstagram(data: Array<{postUrl: string, altText: string, order: number, active: boolean}>): Promise<boolean> {
+  return await setCachedData(CACHE_KEYS.INSTAGRAM, data, CACHE_TTL.INSTAGRAM);
 }
 
-export async function getCachedSearchResults(searchKey: string): Promise<{books: unknown[], totalCount: number} | null> {
-  return await getCachedData<{books: unknown[], totalCount: number}>(`${CACHE_KEYS.SEARCH_RESULTS}:${searchKey}`);
+export async function getCachedCommunityEvents(): Promise<Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}> | null> {
+  return await getCachedData<Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}>>(CACHE_KEYS.COMMUNITY_EVENTS);
 }
 
-export async function setCachedSearchResults(searchKey: string, data: {books: unknown[], totalCount: number}): Promise<boolean> {
-  return await setCachedData(`${CACHE_KEYS.SEARCH_RESULTS}:${searchKey}`, data, CACHE_TTL.SEARCH_RESULTS);
+export async function setCachedCommunityEvents(data: Array<{eventName: string, date: string, description: string, imageUrl: string, location: string, link: string, active: boolean}>): Promise<boolean> {
+  return await setCachedData(CACHE_KEYS.COMMUNITY_EVENTS, data, CACHE_TTL.COMMUNITY_EVENTS);
 }
 
-export async function getCachedBooksData(cacheKey: string): Promise<unknown | null> {
-  return await getCachedData<unknown>(`${CACHE_KEYS.BOOK_DATA}:${cacheKey}`);
+// NEW: Category-specific cache functions (structured cache per category)
+export async function getCachedCategoryBooks(categoryId: string): Promise<{books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}} | null> {
+  return await getCachedData<{books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}}>(`${CACHE_KEYS.BOOKS_BY_CATEGORY}:${categoryId}`);
 }
 
-export async function setCachedBooksData(cacheKey: string, data: unknown): Promise<boolean> {
-  return await setCachedData(`${CACHE_KEYS.BOOK_DATA}:${cacheKey}`, data, CACHE_TTL.BOOK_DATA);
+export async function setCachedCategoryBooks(categoryId: string, data: {books: unknown[], metadata?: {totalBooks: number, booksWithImageIds: number}}): Promise<boolean> {
+  return await setCachedData(`${CACHE_KEYS.BOOKS_BY_CATEGORY}:${categoryId}`, data, CACHE_TTL.BOOKS_BY_CATEGORY);
 }
 
 // Cache invalidation functions
@@ -205,14 +206,16 @@ export async function invalidateBooksByCategory(categoryId?: string): Promise<bo
   }
 }
 
+// NEW: Invalidate specific category cache
+export async function invalidateCategoryBooks(categoryId: string): Promise<boolean> {
+  return await deleteCachedData(`${CACHE_KEYS.BOOKS_BY_CATEGORY}:${categoryId}`);
+}
+
 export async function invalidateBookData(bookId?: string): Promise<boolean | number> {
-  if (bookId) {
-    return await deleteCachedData(`${CACHE_KEYS.BOOK_DATA}:${bookId}`);
-  } else {
-    // For Upstash, we need to manually track and delete keys
-    console.warn('Pattern deletion not fully supported with Upstash REST API');
-    return 0;
-  }
+  // Note: Individual book data caching has been removed
+  // This function is kept for backward compatibility but does nothing
+  console.warn('Individual book data caching has been removed. Use category cache invalidation instead.');
+  return false;
 }
 
 export async function invalidateAllCache(): Promise<number> {

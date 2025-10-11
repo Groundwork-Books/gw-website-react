@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCachedBooksByCategory, setCachedBooksByCategory } from '@/lib/redis';
+import { getCachedCategoryBooks, setCachedCategoryBooks } from '@/lib/redis';
 
 // Square item types for this route
 interface SquareMoneyAmount {
@@ -118,22 +118,31 @@ export async function GET(
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });
     }
 
-    // Create cache key with limit parameter to ensure different limits are cached separately
-    const cacheKey = limit ? `${categoryId}:limit:${limit}` : categoryId;
-    
     // Try to get books from Redis cache first
-    const cachedBooks = await getCachedBooksByCategory(cacheKey);
+    const cachedBooks = await getCachedCategoryBooks(categoryId);
     if (cachedBooks) {
       console.log(`Returning cached books for category ${categoryId} (limit: ${limit || 'none'})`);
+      
+      // Apply limit filtering if requested and not already applied in cache
+      if (limit && cachedBooks.books.length > limit) {
+        const limitedBooks = cachedBooks.books.slice(0, limit);
+        return NextResponse.json({
+          books: limitedBooks,
+          metadata: {
+            ...cachedBooks.metadata,
+            totalBooks: limitedBooks.length
+          }
+        });
+      }
+      
       return NextResponse.json(cachedBooks);
     }
 
     console.log(`Cache miss - fetching books for category ${categoryId} from Square API`);
     const requestBody: SearchCatalogItemsRequest = { category_ids: [categoryId] };
     
-    if (limit && limit > 0) {
-      requestBody.limit = limit;
-    }
+    // Note: We don't apply limit in the API request - we cache all books and apply limit on retrieval
+    // This allows us to serve different limits from the same cache
 
     const data = await fetchSquareAPI('/v2/catalog/search-catalog-items', {
       method: 'POST',
@@ -146,7 +155,7 @@ export async function GET(
         metadata: { totalBooks: 0, imagesLoaded: 0, booksWithImageIds: 0 } 
       };
       // Cache empty results for a shorter time
-      await setCachedBooksByCategory(cacheKey, emptyResult);
+      await setCachedCategoryBooks(categoryId, emptyResult);
       return NextResponse.json(emptyResult);
     }
 
@@ -181,9 +190,21 @@ export async function GET(
       } 
     };
 
-    // Cache the result
-    await setCachedBooksByCategory(cacheKey, result);
+    // Cache the result (all books for this category)
+    await setCachedCategoryBooks(categoryId, result);
     console.log(`Cached ${sortedBooks.length} books for category ${categoryId}`);
+
+    // Apply limit filtering if requested
+    if (limit && sortedBooks.length > limit) {
+      const limitedBooks = sortedBooks.slice(0, limit);
+      return NextResponse.json({
+        books: limitedBooks,
+        metadata: {
+          ...result.metadata,
+          totalBooks: limitedBooks.length
+        }
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error) {

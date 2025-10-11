@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { scope, categoryId, bookId, imageId, searchQuery } = body;
+    const { scope, categoryId, imageId } = body;
 
     let deletedCount = 0;
     let message = '';
@@ -77,18 +77,6 @@ export async function POST(request: NextRequest) {
         }
         break;
         
-      case 'book-data':
-        if (bookId) {
-          const success = await invalidateBookData(bookId);
-          message = `Book data cache invalidated for book: ${bookId}`;
-          deletedCount = typeof success === 'boolean' ? (success ? 1 : 0) : success;
-        } else {
-          const result = await invalidateBookData();
-          deletedCount = typeof result === 'boolean' ? (result ? 1 : 0) : result;
-          message = `Book data cache invalidated for all books (${deletedCount} entries)`;
-        }
-        break;
-        
       case 'image-urls':
         if (imageId) {
           const success = await invalidateImageUrls(imageId);
@@ -98,19 +86,6 @@ export async function POST(request: NextRequest) {
           const result = await invalidateImageUrls();
           deletedCount = typeof result === 'boolean' ? (result ? 1 : 0) : result;
           message = `Image URL cache invalidated for all images (${deletedCount} entries)`;
-        }
-        break;
-        
-      case 'search-results':
-        if (searchQuery) {
-          // Invalidate specific search query (would need the exact cache key)
-          message = `Search cache invalidation for specific queries not yet implemented. Use 'search-all' scope instead.`;
-          deletedCount = 0;
-        } else {
-          // Invalidate all search results (note: Upstash REST API limitation)
-          const result = await deletePattern();
-          deletedCount = result;
-          message = `Search results cache invalidated for all queries (${deletedCount} entries)`;
         }
         break;
         
@@ -146,12 +121,10 @@ export async function PUT(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get('scope') || 'all';
     const categoryId = searchParams.get('categoryId') || undefined;
-    const bookId = searchParams.get('bookId') || undefined;
     const imageId = searchParams.get('imageId') || undefined;
-    const searchQuery = searchParams.get('searchQuery') || undefined;
 
     // Reuse POST logic
-    const mockBody = { scope, categoryId, bookId, imageId, searchQuery };
+    const mockBody = { scope, categoryId, imageId };
     const mockRequest = {
       ...request,
       json: async () => mockBody
