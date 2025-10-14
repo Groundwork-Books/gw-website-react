@@ -9,6 +9,17 @@ import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+type BookExtras = {
+  author?: string;
+  availability?: 'available' | 'unavailable' | string;
+  isUnavailable?: boolean;
+  unavailable?: boolean;
+};
+
+type CartItemExtras = {
+  unavailable?: boolean;
+};
+
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
   const { cart, removeFromCart, updateQuantity, clearCart, itemCount } = useCart();
@@ -115,115 +126,161 @@ export default function CartPage() {
             <div className="mt-10 border-t border-black-300" />
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-              <Link href="/store" className="text-blue-600 hover:text-blue-700 font-medium">
-                Continue Shopping
-              </Link>
-            </div>
+          <section aria-label="Cart items and summary" className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Your Cart */}
+              <div className="md:col-span-2 bg-white border border-gray-200 p-6">
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <h2 className="font-calluna text-3xl font-extrabold text-gw-green-1">Your Cart</h2>
+                  <span className="text-xl font-extrabold text-gw-green-1 font-calluna">
+                    {itemCount} {itemCount === 1 ? 'Item' : 'Items'}
+                  </span>
+                </div>
+                <hr className="mt-2 mb-4 border-black-300" />
 
-            <>
-              <div className="space-y-4 mb-8">
-                {cart.items.map((item) => (
-                  <div key={item.book.id} className="flex items-center justify-between border-b border-gray-200 pb-4">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-20 bg-gray-200 rounded flex items-center justify-center">
-                        {item.book.imageUrl ? (
-                          <Image
-                            src={item.book.imageUrl}
-                            alt={item.book.name}
-                            width={64}
-                            height={80}
-                            className="w-full h-full object-cover rounded"
-                          />
-                        ) : (
-                          <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{item.book.name}</h3>
-                        <p className="text-gray-600">${item.book.price.toFixed(2)} each</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center border border-gray-300 rounded">
-                        <button
-                          onClick={() => handleQuantityChange(item.book.id, item.quantity - 1)}
-                          className="px-3 py-1 text-gray-600 hover:text-gray-800"
-                        >
-                          -
-                        </button>
-                        <span className="px-3 py-1 border-l border-r border-gray-300">{item.quantity}</span>
-                        <button
-                          onClick={() => handleQuantityChange(item.book.id, item.quantity + 1)}
-                          className="px-3 py-1 text-gray-600 hover:text-gray-800"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <div className="w-24 text-right">
-                        <span className="font-semibold">
-                          ${(item.book.price * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => removeFromCart(item.book.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="Remove item"
+                {/* Cart items */}
+                <div className="space-y-4">
+                  {cart.items.map((item) => {
+                    const bookMeta = item.book as Partial<BookExtras>;
+                    const itemMeta = item as Partial<CartItemExtras>;
+                    // Optional “unavailable” overlay support if you ever set these flags on items
+                    const unavailable =
+                      Boolean(itemMeta.unavailable) ||
+                      Boolean(bookMeta.unavailable) ||
+                      Boolean(bookMeta.isUnavailable) ||
+                      bookMeta.availability === 'unavailable';
+                    return (
+                      <div
+                        key={item.book.id}
+                        className="relative flex items-start justify-between border-b border-black py-2 min-h-[112px]"
                       >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                        {unavailable && (
+                          <div className="absolute inset-0 bg-gray-200/80 z-10 flex items-center">
+                            <p className="ml-24 text-xs font-semibold text-gray-800 tracking-wide">
+                              ITEM UNAVAILABLE - LIMITED STOCK
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-start gap-4">
+                          {/* Thumb */}
+                          <div className="relative w-20 h-28 flex-shrink-0 overflow-hidden bg-gray-100 rounded">
+                            {item.book.imageUrl ? (
+                              <Image
+                                src={item.book.imageUrl}
+                                alt={item.book.name}
+                                fill
+                                sizes="80px"
+                                className="object-cover"
+                                priority={false}
+                              />
+                            ) : (
+                              <svg className="w-6 h-6 text-gray-400 absolute inset-0 m-auto" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </div>
+
+                          {/* Title/author + qty */}
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-gray-900">{item.book.name}</h3>
+                            {/* If you pass an author field, this will render like the mock */}
+                            {bookMeta.author && (
+                              <p className="text-sm text-gray-600">by {bookMeta.author}</p>
+                            )}
+
+                            {/* Quantity stepper */}
+                            <div className="mt-2 inline-flex items-center border border-black rounded">
+                              <button
+                                onClick={() => handleQuantityChange(item.book.id, item.quantity - 1)}
+                                disabled={unavailable}
+                                className="px-2 py-1 text-sm text-black disabled:opacity-50 hover:cursor-pointer"
+                                aria-label="Decrease quantity"
+                              >
+                                –
+                              </button>
+                              <span className="px-3 py-1 border-l border-r border-black text-sm">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => handleQuantityChange(item.book.id, item.quantity + 1)}
+                                disabled={unavailable}
+                                className="px-2 py-1 text-sm text-gray-700 disabled:opacity-50 hover:cursor-pointer"
+                                aria-label="Increase quantity"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right side: Remove + line total */}
+                        <div className="flex flex-col items-end justify-between self-stretch text-right">
+                          <button
+                            onClick={() => removeFromCart(item.book.id)}
+                            disabled={unavailable}
+                            className="text-sm hover:cursor-pointer text-gray-500 hover:underline disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+
+                          {/* Price tag */}
+                          <div className="font-semibold text-gray-900 mt-auto">
+                            ${(item.book.price * item.quantity).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">Total: ${cart.total.toFixed(2)}</p>
+              {/* Right: 1/3 — Summary card */}
+              <aside className="bg-white border border-gray-200 p-6 h-min md:sticky md:top-6">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-calluna text-3xl font-extrabold text-gw-green-1">Total</h3>
+                  <div className="font-calluna text-3xl font-extrabold text-gw-green-1">
+                    ${cart.total.toFixed(2)}
                   </div>
                 </div>
 
-                <div className="flex space-x-4">
-                  <button
-                    onClick={clearCart}
-                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-md transition duration-200"
-                  >
-                    Clear Cart
-                  </button>
+                {/* Buttons */}
+                <div className="mt-6 space-y-3">
                   <Link
                     href="/checkout"
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-md transition duration-200 text-center"
+                    className="w-full inline-flex justify-center items-center rounded-full bg-gw-green-1 text-white font-semibold py-3 px-4 shadow hover:bg-gw-green-3 transition-colors"
                   >
-                    Proceed to Checkout
+                    Proceed to checkout &gt;
+                  </Link>
+                  <Link
+                    href="/store"
+                    className="w-full inline-flex justify-center items-center rounded-full border border-gw-green-1 text-gw-green-1 bg-white font-semibold py-3 px-4 hover:bg-gw-green-2/50 transition-colors"
+                  >
+                    Continue shopping &gt;
                   </Link>
                 </div>
-              </div>
-            </>
-          </div>
+
+                <div className="mt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="text-sm text-black hover:underline hover:cursor-pointer"
+                  >
+                    Clear cart
+                  </button>
+                </div>
+
+                <p className="mt-2 text-xs text-gray-600 italic">
+                  *Please note that Groundwork Books does not provide shipping. Your order will be in store pick up only.
+                </p>
+              </aside>
+            </div>
+          </section>
         )}
       </div>
       <Footer />
