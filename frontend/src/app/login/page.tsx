@@ -65,7 +65,7 @@ function LoginForm() {
     try {
       await sendPasswordResetEmail(auth, email);
       setResetEmailSent(true);
-      setMessage('Password reset email sent! Check your inbox and follow the instructions to reset your password. Please check your spam folder');
+      setMessage('Password reset email sent!\nPlease follow the instructions to reset your password.\nRemember to check both your inbox and spam folder.');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'An error occurred while sending the reset email');
     } finally {
@@ -106,29 +106,46 @@ function LoginForm() {
     <div className="py-20">
       <div className="max-w-2xl mx-auto bg-white shadow-md p-6 flex justify-center">
         <div className="max-w-md w-full space-y-8">
-          <div className="flex justify-center">
-            <h2 className="mt-4 text-center text-4xl font-extrabold text-gw-green-1 font-calluna">
+          <div className="text-center">
+            <h2 className="mt-4 text-4xl font-extrabold text-gw-green-1 font-calluna">
               {showResetForm ? 'Reset your password' : 'Sign in to your account'}
             </h2>
-            {message && (
-              <div className={`mt-4 ${resetEmailSent ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'} border rounded-md p-3`}>
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className={`h-5 w-5 ${resetEmailSent ? 'text-green-400' : 'text-blue-400'}`} viewBox="0 0 20 20" fill="currentColor">
-                      {resetEmailSent ? (
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      ) : (
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      )}
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className={`text-sm ${resetEmailSent ? 'text-green-800' : 'text-blue-800'}`}>{message}</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
+
+          {message && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`mt-4 w-full ${
+                resetEmailSent ? 'bg-gw-green-2 border-gw-green-1' : 'bg-gw-green-2 border-gw-green-1'
+              } border rounded-md p-3`}
+            >
+              <div className="flex items-center justify-center text-center gap-2">
+                <svg
+                  className={`h-5 w-5 flex-shrink-0 ${resetEmailSent ? 'text-gw-green-1' : 'text-gw-green-1'}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  {resetEmailSent ? (
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  ) : (
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  )}
+                </svg>
+                <p className={`text-sm whitespace-pre-line ${resetEmailSent ? 'text-gw-green-1' : 'text-gw-green-1'}`}>
+                  {message}
+                </p>
+              </div>
+            </div>
+          )}
           
           {showResetForm ? (
             /* Password Reset Form */
