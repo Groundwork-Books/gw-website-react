@@ -472,7 +472,7 @@ export default function BooksPage() {
                       onClick={() => setSelectedBook(book)}
                     >
                       <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                        <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
+                        <div className="absolute inset-0 bg-gw-green-1 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
                         <BookImage book={book} />
                       </div>
 
@@ -480,7 +480,7 @@ export default function BooksPage() {
                         <h3 className="text-sm font-light text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
                           {book.name}
                         </h3>
-                        <span className="text-sm text-green-600 font-bold block mb-2">
+                        <span className="text-sm text-gw-green-1 font-bold block mb-2">
                           ${Number(book.price).toFixed(2)}
                         </span>
                       </div>
@@ -593,7 +593,7 @@ export default function BooksPage() {
                         onClick={() => setSelectedBook(book)}
                       >
                         <div className=" h-50 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                          <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
+                          <div className="absolute inset-0 bg-gw-green-1 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
                           <BookImage book={book} />
                         </div>
 
@@ -601,7 +601,7 @@ export default function BooksPage() {
                           <h3 className="text-md font-normal text-gray-900 mb-1 line-clamp-2">
                             {book.name}
                           </h3>
-                          <span className="text-sm text-green-600 font-bold">
+                          <span className="text-sm text-gw-green-1 font-bold">
                             ${Number(book.price).toFixed(2)}
                           </span>
                         </div>
@@ -680,7 +680,7 @@ export default function BooksPage() {
                   {selectedBook.name}
                 </h3>
 
-                <p className="text-2xl text-green-600 font-bold mb-4">
+                <p className="text-2xl text-gw-green-1 font-bold mb-4">
                   ${Number(selectedBook.price).toFixed(2)}
                 </p>
 
