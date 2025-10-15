@@ -494,10 +494,10 @@ export default function BooksPage() {
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      className={`px-3 py-2 rounded-full text-sm font-medium hover:cursor-pointer ${
                         currentPage === 1
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gw-green-2'
                       }`}
                     >
                       Previous
@@ -520,10 +520,10 @@ export default function BooksPage() {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-2 rounded-md text-sm font-medium ${
+                          className={`px-3 py-2 rounded-full text-sm font-medium hover:cursor-pointer ${
                             currentPage === pageNum
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                              ? 'bg-gw-green-1 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gw-green-2'
                           }`}
                         >
                           {pageNum}
@@ -534,10 +534,10 @@ export default function BooksPage() {
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === paginationData.totalPages}
-                      className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      className={`px-3 py-2 rounded-full text-sm font-medium hover:cursor-pointer ${
                         currentPage === paginationData.totalPages
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gw-green-2'
                       }`}
                     >
                       Next
