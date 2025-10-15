@@ -262,7 +262,7 @@ function SearchPageContent() {
               <p className="text-sm text-gray-500">Or browse our categories:</p>
               <Link
                 href="/store"
-                className="inline-block bg-gw-green-1 text-white px-6 py-3 rounded-lg hover:bg-gw-green-1/90 transition-colors"
+                className="inline-block bg-gw-green-1 text-white px-12 py-3 rounded-full font-calluna hover:bg-gw-green-1/90 transition-colors"
               >
                 View All Books
               </Link>
