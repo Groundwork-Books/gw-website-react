@@ -65,6 +65,16 @@ export default function BooksPage() {
   const { addToCart } = useCart();
   const modalImageRef = useRef<HTMLDivElement | null>(null);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    if (!selectedBook) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedBook(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedBook]);
+
   // Fetch books for selected genre (tile view)
   const fetchSelectedGenreBooks = useCallback(async () => {
     if (!selectedGenre) return;
@@ -608,14 +618,18 @@ export default function BooksPage() {
 
       {/* Book Modal */}
       {selectedBook && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              // only close if the actual overlay was clicked, not a child
+              if (e.target === e.currentTarget) setSelectedBook(null);
+            }}>
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-xl font-bold text-gray-900">Book Details</h2>
               <button
                 onClick={() => setSelectedBook(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-gray-400 hover:text-gray-600 hover:cursor-pointer text-2xl font-bold"
               >
                 ×
               </button>
