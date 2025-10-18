@@ -204,13 +204,13 @@ export default function CartPage() {
                               >
                                 –
                               </button>
-                              <span className="px-3 py-1 border-l border-r border-black text-sm">
+                              <span className="px-1 py-1 text-sm font-helvetica">
                                 {item.quantity}
                               </span>
                               <button
                                 onClick={() => handleQuantityChange(item.book.id, item.quantity + 1)}
                                 disabled={unavailable}
-                                className="px-2 py-1 text-sm text-gray-700 disabled:opacity-50 hover:cursor-pointer"
+                                className="px-2 py-1 text-sm text-black disabled:opacity-50 hover:cursor-pointer"
                                 aria-label="Increase quantity"
                               >
                                 +
@@ -253,7 +253,7 @@ export default function CartPage() {
                 <div className="mt-6 space-y-3">
                   <Link
                     href="/checkout"
-                    className="w-full inline-flex justify-center items-center rounded-full bg-gw-green-1 text-white font-semibold py-3 px-4 shadow hover:bg-gw-green-3 transition-colors"
+                    className="w-full inline-flex justify-center items-center rounded-full bg-gw-green-1 text-white py-3 px-4 shadow hover:bg-gw-green-3 transition-colors"
                   >
                     Proceed to checkout &gt;
                   </Link>
