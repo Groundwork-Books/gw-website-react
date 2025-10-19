@@ -99,7 +99,7 @@ export async function GET() {
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Instagram!A2:D50',
+      range: 'Instagram!A3:D50',
     });
 
     const rows = response.data.values;

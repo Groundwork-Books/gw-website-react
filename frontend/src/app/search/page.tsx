@@ -11,6 +11,7 @@ import { useCart } from '@/lib/CartContext';
 import { Book } from '@/lib/types';
 import { searchBooks } from '@/lib/api';
 import Image from 'next/image';
+import BookCard from '@/components/BookCard';
 
 interface SearchResult extends Book {
   searchScore?: number;
@@ -166,66 +167,14 @@ function SearchPageContent() {
         {/* Results Grid */}
         {results.length > 0 && (
           <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {results.map((book) => (
-                <div
+                <BookCard
                   key={book.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                  book={book}
                   onClick={() => setSelectedBook(book)}
-                >
-                  <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-green-500 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                    {book.imageUrl ? (
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={book.imageUrl}
-                          alt={book.name}
-                          fill={true}
-                          sizes="300px"
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-gray-400 text-center">
-                        <svg
-                          className="w-8 h-8 mx-auto mb-2"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <p className="text-sm">No Image</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {book.name}
-                    </h3>
-
-                    {book.description && (
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                        {book.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-lg text-gw-green-1 font-bold">
-                        ${Number(book.price).toFixed(2)}
-                      </span>
-                      {book.score && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {(book.score * 100).toFixed(0)}% match
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  fixedWidth
+                />
               ))}
             </div>
           </div>

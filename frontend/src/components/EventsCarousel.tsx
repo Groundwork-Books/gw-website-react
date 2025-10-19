@@ -142,7 +142,7 @@ export default function EventsCarousel() {
                         href={event.link} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="inline-block bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors"
+                        className="hover:cursor-pointer inline-block bg-gw-white border-2 border-gw-green-1 text-gw-green-1 px-6 py-2 rounded-full font-semibold hover:bg-gw-green-1 hover:text-gw-white transition-colors"
                       >
                         Learn More
                       </a>
@@ -156,7 +156,7 @@ export default function EventsCarousel() {
           {/* Navigation arrows */}
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-gw-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-lg transition-all"
+            className="hover:cursor-pointer absolute left-4 top-1/2 transform -translate-y-1/2 bg-gw-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-lg transition-all"
           >
             <svg className="w-6 h-6 text-gw-green-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -165,7 +165,7 @@ export default function EventsCarousel() {
           
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gw-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-lg transition-all"
+            className="hover:cursor-pointer absolute right-4 top-1/2 transform -translate-y-1/2 bg-gw-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-2 shadow-lg transition-all"
           >
             <svg className="w-6 h-6 text-gw-green-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

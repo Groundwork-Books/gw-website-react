@@ -16,6 +16,7 @@ import {
 } from '@/lib/square';
 import Image from 'next/image';
 import { flyToCart } from '@/lib/flyToCart';
+import BookCard from '@/components/BookCard';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -447,7 +448,7 @@ export default function BooksPage() {
                 {categories.find(cat => cat.id === selectedGenre)?.name || 'Selected Genre'}
               </h2>
               <p className="text-gray-600">
-                {selectedBooks.length} book{selectedBooks.length !== 1 ? 's' : ''} found
+                {selectedBooks.length} book{selectedBooks.length !== 1 ? 's' : ''}
               </p>
             </div>
 
@@ -463,28 +464,14 @@ export default function BooksPage() {
             ) : (
               <>
                 {/* Books Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
                   {paginationData.paginatedBooks.map((book: Book) => (
-                    <div
+                    <BookCard
                       key={book.id}
-                      data-book-id={book.id}
-                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                      book={book}
                       onClick={() => setSelectedBook(book)}
-                    >
-                      <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                        <div className="absolute inset-0 bg-gw-green-1 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                        <BookImage book={book} />
-                      </div>
-
-                      <div className="p-3">
-                        <h3 className="text-sm font-light text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
-                          {book.name}
-                        </h3>
-                        <span className="text-sm text-gw-green-1 font-bold block mb-2">
-                          ${Number(book.price).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                      fixedWidth
+                    />
                   ))}
                 </div>
 
@@ -586,26 +573,12 @@ export default function BooksPage() {
                   ) : (
                   <div className="flex overflow-x-auto space-x-4 pb-2">
                     {books.map((book) => (
-                      <div
+                      <BookCard
                         key={book.id}
-                        data-book-id={book.id}
-                        className="min-w-[200px] max-w-[200px] bg-white overflow-hidden hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                        book={book}
                         onClick={() => setSelectedBook(book)}
-                      >
-                        <div className=" h-50 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gw-green-1 opacity-0 group-hover:opacity-20 transition-opacity duration-200 z-10"></div>
-                          <BookImage book={book} />
-                        </div>
-
-                        <div className="p-3">
-                          <h3 className="text-md font-normal text-gray-900 mb-1 line-clamp-2">
-                            {book.name}
-                          </h3>
-                          <span className="text-sm text-gw-green-1 font-bold">
-                            ${Number(book.price).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
+                        fixedWidth
+                      />
                     ))}
                   </div>
                 )}
