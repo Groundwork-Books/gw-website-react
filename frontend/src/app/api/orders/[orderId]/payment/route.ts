@@ -30,7 +30,7 @@ export async function POST(
     }
 
     // Process payment with direct Square Payments API
-    const paymentResponse = await fetch('https://connect.squareupsandbox.com/v2/payments', {
+    const paymentResponse = await fetch('https://connect.squareup.com/v2/payments', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({
