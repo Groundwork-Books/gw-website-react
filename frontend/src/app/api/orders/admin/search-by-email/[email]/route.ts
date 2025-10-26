@@ -27,7 +27,7 @@ export async function GET(
     const limit = parseInt(searchParams.get('limit') || '20');
     
     // Search all orders and filter by customer email
-    const searchResponse = await fetch('https://connect.squareupsandbox.com/v2/orders/search', {
+    const searchResponse = await fetch('https://connect.squareup.com/v2/orders/search', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({

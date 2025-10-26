@@ -26,7 +26,7 @@ export async function PUT(
     const { status, notes } = body; // status: 'COMPLETED' (picked up) or 'PREPARED' (ready)
     
     // First get the current order
-    const orderResponse = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
+    const orderResponse = await fetch(`https://connect.squareup.com/v2/orders/${orderId}`, {
       method: 'GET',
       headers: getSquareHeaders(false)
     });
@@ -41,7 +41,7 @@ export async function PUT(
     const currentFulfillment = currentOrder.fulfillments[0];
     
     // Update the fulfillment status
-    const updateResponse = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
+    const updateResponse = await fetch(`https://connect.squareup.com/v2/orders/${orderId}`, {
       method: 'PUT',
       headers: getSquareHeaders(),
       body: JSON.stringify({
