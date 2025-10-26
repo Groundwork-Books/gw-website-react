@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // First create the order (for tracking purposes)
-    const orderResponse = await fetch('https://connect.squareupsandbox.com/v2/orders', {
+    const orderResponse = await fetch('https://connect.squareup.com/v2/orders', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const orderId = orderData.order.id;
 
     // Now create Payment Link for this order
-    const paymentLinkResponse = await fetch('https://connect.squareupsandbox.com/v2/online-checkout/payment-links', {
+    const paymentLinkResponse = await fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({
