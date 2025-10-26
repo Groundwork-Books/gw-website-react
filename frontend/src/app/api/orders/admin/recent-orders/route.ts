@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status'); // status: 'PREPARED', 'COMPLETED', etc.
     const showUnpaid = searchParams.get('show_unpaid') === 'true';
     
-    const searchResponse = await fetch('https://connect.squareupsandbox.com/v2/orders/search', {
+    const searchResponse = await fetch('https://connect.squareup.com/v2/orders/search', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({

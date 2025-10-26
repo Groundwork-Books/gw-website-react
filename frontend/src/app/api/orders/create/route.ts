@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use direct fetch API since SDK has auth issues
-    const response = await fetch('https://connect.squareupsandbox.com/v2/orders', {
+    const response = await fetch('https://connect.squareup.com/v2/orders', {
       method: 'POST',
       headers: getSquareHeaders(),
       body: JSON.stringify({
