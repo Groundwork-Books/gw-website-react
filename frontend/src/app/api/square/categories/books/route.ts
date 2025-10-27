@@ -10,9 +10,11 @@ interface SquareMoneyAmount {
 interface SquareItemVariationData {
   price_money?: SquareMoneyAmount;
   item_id?: string;
+  track_inventory?: boolean;
 }
 
 interface SquareItemVariation {
+  id: string;
   item_variation_data?: SquareItemVariationData;
 }
 
@@ -37,6 +39,9 @@ interface ProcessedBook {
   categoryId: string;
   imageId: string | null;
   imageUrl?: string | null;
+  squareItemId?: string;
+  squareVariationId?: string;
+  inventoryTracked?: boolean;
 }
 
 interface BatchCategoryRequest {
@@ -173,6 +178,7 @@ export async function POST(request: NextRequest) {
           const itemData = item.item_data;
           const variation = itemData?.variations?.[0];
           const price = variation?.item_variation_data?.price_money;
+          const vdata = variation?.item_variation_data;
 
           return {
             id: item.id,
@@ -182,7 +188,10 @@ export async function POST(request: NextRequest) {
             currency: price?.currency || 'USD',
             categoryId: categoryId,
             imageId: itemData?.image_ids?.[0] || null,
-            imageUrl: null // Will be loaded separately
+            imageUrl: null, // Will be loaded separately
+            squareItemId: item.id,
+            squareVariationId: variation?.id,
+            inventoryTracked: vdata?.track_inventory ?? false,
           };
         });
 

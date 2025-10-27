@@ -19,11 +19,13 @@ interface SquareCatalogItem {
     name?: string;
     description?: string;
     variations?: Array<{
+      id: string;
       item_variation_data?: {
         price_money?: {
           amount?: number;
           currency?: string;
         };
+        track_inventory?: boolean;
       };
     }>;
     image_ids?: string[];
@@ -37,6 +39,11 @@ interface Book {
   price: number;
   currency: string;
   imageId?: string;
+  
+  // Inventory Tracking
+  squareItemId?: string;
+  squareVariationId?: string;
+  inventoryTracked?: boolean;
 }
 
 async function fetchSquareAPI(endpoint: string, options: RequestInit = {}) {
@@ -121,11 +128,12 @@ export async function POST(request: NextRequest) {
     if (data?.objects) {
       // Transform Square catalog items to our book format
       books = data.objects
-        .filter((item: SquareCatalogItem) => item.type === 'ITEM')
-        .map((item: SquareCatalogItem): Book => {
+        .filter((item) => item.type === 'ITEM')
+        .map((item): Book => {
           const itemData = item.item_data;
           const variation = itemData?.variations?.[0];
           const price = variation?.item_variation_data?.price_money;
+          const vdata = variation?.item_variation_data;
 
           return {
             id: item.id,
@@ -134,6 +142,11 @@ export async function POST(request: NextRequest) {
             price: price ? Number(price.amount) / 100 : 0,
             currency: price?.currency || 'USD',
             imageId: itemData?.image_ids?.[0] || undefined,
+
+            // inventory-related fields
+            squareItemId: item.id,
+            squareVariationId: variation?.id,
+            inventoryTracked: vdata?.track_inventory ?? false,
           };
         });
     }

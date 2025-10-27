@@ -11,6 +11,14 @@ export interface SquareLineItem {
   base_price_money?: SquareMoneyAmount;
 }
 
+export interface SquareInventoryCount {
+  catalog_object_id: string;
+  location_id: string;
+  state: 'IN_STOCK' | 'SOLD' | 'RESERVED' | string;
+  quantity: string;
+  calculated_at: string;
+}
+
 export interface SquarePickupRecipient {
   display_name: string;
   email_address: string;
