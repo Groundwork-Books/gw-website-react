@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -12,6 +12,8 @@ import { Book } from '@/lib/types';
 import { searchBooks } from '@/lib/api';
 import Image from 'next/image';
 import BookCard from '@/components/BookCard';
+import { useInventory } from '@/lib/useInventory';
+import { flyToCart } from '@/lib/flyToCart';
 
 interface SearchResult extends Book {
   searchScore?: number;
@@ -29,6 +31,42 @@ function SearchPageContent() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const { user } = useAuth();
   const { addToCart } = useCart();
+
+  // fly-to-cart animation and inventory
+  const modalImageRef = useRef<HTMLDivElement | null>(null);
+  const { qty: invQty, loading: invLoading } = useInventory(selectedBook?.squareVariationId);
+
+  // Inventory logic
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedBook) return;
+    if (!selectedBook.squareVariationId) {
+      fetch('/api/square/books/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookIds: [selectedBook.id] }),
+      })
+        .then(r => r.json())
+        .then(d => {
+          const enriched = d?.books?.[0];
+          if (!cancelled && enriched?.squareVariationId) {
+            setSelectedBook(prev => (prev ? { ...prev, ...enriched } : prev));
+          }
+        })
+        .catch(() => { /* ignore; keep modal usable */ });
+    }
+    return () => { cancelled = true; };
+  }, [selectedBook?.id]);
+
+  // close modal on Escape
+  useEffect(() => {
+    if (!selectedBook) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedBook(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedBook]);
 
   // Get query from URL parameters on component mount
   useEffect(() => {
@@ -83,31 +121,27 @@ function SearchPageContent() {
       {/* Header */}
       <Header />
 
-      {/* Hero Section (full-bleed) */}
-        <section className="relative h-[200px] flex items-center justify-center isolate">
-          {/* Background image */}
-          <div className="rounded-lg overflow-hidden">
-            <Image
-              src="/images/hero/book-collage.jpg"
-              alt="Book collage background"
-              fill
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
+      {/* Hero Section */}
+      <section className="relative h-[200px] flex items-center justify-center isolate">
+        <div className="rounded-lg overflow-hidden">
+          <Image
+            src="/images/hero/book-collage.jpg"
+            alt="Book collage background"
+            fill
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
+        </div>
+        <div className="absolute inset-0 " />
+        <div className="relative z-10 w-full px-4">
+          <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12 text-center">
+            <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
+              Bookstore Selection
+            </h1>
           </div>
-          {/* Optional overlay for readability */}
-          <div className="absolute inset-0 " />
-
-          {/* Content */}
-          <div className="relative z-10 w-full px-4">
-            <div className="mx-auto max-w-3xl bg-white/90 py-10 px-6 md:px-12  text-center">
-              <h1 className="font-calluna font-black text-4xl md:text-5xl lg:text-[56px] leading-[110%] text-gw-green-1">
-                Bookstore Selection
-              </h1>
-            </div>
-          </div>
-        </section>
+        </div>
+      </section>
 
 
 {/* Search Section */}
@@ -222,14 +256,19 @@ function SearchPageContent() {
 
       {/* Book Modal */}
       {selectedBook && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedBook(null);
+          }}
+        >
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-4 border-b">
               <h2 className="text-xl font-bold text-gray-900">Book Details</h2>
               <button
                 onClick={() => setSelectedBook(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                className="text-gray-400 hover:text-gray-600 hover:cursor-pointer text-2xl font-bold"
               >
                 ×
               </button>
@@ -239,32 +278,63 @@ function SearchPageContent() {
             <div className="p-4">
               <div className="flex flex-col items-center text-center">
                 {/* Book Image */}
-                <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
-                  {selectedBook.imageUrl ? (
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={selectedBook.imageUrl}
-                        alt={selectedBook.name}
-                        fill={true}
-                        sizes="192px"
-                        className="object-cover rounded-lg"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-gray-400 text-center">
-                      <svg
-                        className="w-16 h-16 mx-auto mb-2"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                          clipRule="evenodd"
+                <div
+                  ref={modalImageRef}
+                  data-book-image
+                  className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4"
+                >
+                  <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                    {selectedBook.imageUrl ? (
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={selectedBook.imageUrl}
+                          alt={selectedBook.name}
+                          fill={true}
+                          priority={true}
+                          sizes="192px"
+                          className="object-cover rounded-lg"
                         />
-                      </svg>
-                      <p className="text-sm">No Image</p>
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-center">
+                        <svg
+                          className="w-16 h-16 mx-auto mb-2"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <p className="text-sm">No Image</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Inventory Status */}
+                <div className="mt-2">
+                  {invLoading && <span className="text-gray-500">Checking availability…</span>}
+
+                  {/* If Square isn't tracking inventory → show Available (like the Square UI) */}
+                  {!invLoading && selectedBook?.inventoryTracked === false && (
+                    <span className="text-gw-green-1">Available</span>
+                  )}
+
+                  {/* Tracked items: use numeric logic */}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 5 && (
+                    <span className="text-gw-green-1">In stock</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 0 && invQty <= 5 && (
+                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty === 0 && (
+                    <span className="text-red-600">Out of stock</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty == null && (
+                    <span className="text-gray-600">Availability unavailable</span>
                   )}
                 </div>
 
@@ -273,35 +343,47 @@ function SearchPageContent() {
                   {selectedBook.name}
                 </h3>
 
-                <p className="text-2xl text-green-600 font-bold mb-4">
+                <p className="text-2xl text-gw-green-1 font-bold mb-4">
                   ${Number(selectedBook.price).toFixed(2)}
                 </p>
 
                 {selectedBook.description && (
-                  <p className="text-gray-700 text-sm mb-6 leading-relaxed">
+                  <p className="text-gray-700 text-sm mb-4 leading-relaxed">
                     {selectedBook.description}
                   </p>
                 )}
 
-                {/* Match Score for Search Results */}
-                {(selectedBook as SearchResult).score && (
+                {/* % Match chip — search-only */}
+                {(selectedBook as SearchResult).score ? (
                   <div className="mb-4">
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                    <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                       {((selectedBook as SearchResult).score! * 100).toFixed(0)}% match
                     </span>
                   </div>
-                )}
+                ) : null}
 
                 {/* Add to Cart Button */}
                 <button
-                  onClick={() => {
-                    handleAddToCart(selectedBook);
+                  onClick={(e) => {
+                    if (user && selectedBook) {
+                      addToCart(selectedBook);
+                      const wrap = modalImageRef.current || (e.currentTarget as HTMLElement);
+                      const imgEl = wrap.querySelector('img') as HTMLImageElement | null;
+                      flyToCart(e.currentTarget as HTMLElement, {
+                        startSizeFromEl: wrap,
+                        endSizeFromEl: (document.querySelector('#cart-icon-anchor svg') as HTMLElement) || undefined,
+                        ghostImageSrc: imgEl?.currentSrc || imgEl?.src || selectedBook.imageUrl,
+                        ignoreReducedMotion: true
+                      });
+                    } else {
+                      handleAddToCart(selectedBook!);
+                    }
                     setSelectedBook(null);
                   }}
-                  className={`w-full px-6 py-3 rounded-lg text-lg font-medium transition-colors ${
+                  className={`w-full px-6 py-3 rounded-full text-lg font-medium transition-colors ${
                     user
-                      ? 'bg-gw-green-1 hover:bg-gw-green-1/90 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300'
+                      ? 'bg-gw-green-1 hover:cursor-pointer text-white'
+                      : 'bg-gw-green-2 hover:cursor-pointer text-gray-700 border border-gray-300'
                   }`}
                 >
                   {user ? 'Add to Cart' : 'Login to Purchase'}

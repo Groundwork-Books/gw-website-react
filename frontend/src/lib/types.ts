@@ -7,6 +7,11 @@ export interface Book {
   imageUrl?: string;
   imageId?: string; // Added for on-demand image loading
   categoryId?: string;
+  // Inventory Tracking
+  squareItemId?: string;
+  squareVariationId?: string;
+  
+  inventoryTracked?: boolean;
 }
 
 export interface CartItem {

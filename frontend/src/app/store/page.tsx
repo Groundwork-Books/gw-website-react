@@ -17,6 +17,7 @@ import {
 import Image from 'next/image';
 import { flyToCart } from '@/lib/flyToCart';
 import BookCard from '@/components/BookCard';
+import { useInventory } from '@/lib/useInventory';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -65,6 +66,31 @@ export default function BooksPage() {
   const { user } = useAuth();
   const { addToCart } = useCart();
   const modalImageRef = useRef<HTMLDivElement | null>(null);
+  const { qty: invQty, loading: invLoading } = useInventory(selectedBook?.squareVariationId);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedBook) return;
+
+    // If the cached book lacks variation id, fetch the fresh shape from Square
+    if (!selectedBook.squareVariationId) {
+      fetch('/api/square/books/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookIds: [selectedBook.id] }),
+      })
+        .then(r => r.json())
+        .then(d => {
+          const enriched = d?.books?.[0];
+          if (!cancelled && enriched?.squareVariationId) {
+            setSelectedBook(prev => (prev ? { ...prev, ...enriched } : prev));
+          }
+        })
+        .catch(() => {/* ignore; keep modal usable */});
+    }
+
+    return () => { cancelled = true; };
+  }, [selectedBook?.id]);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -647,7 +673,29 @@ export default function BooksPage() {
                   )}
                 </div>
                 </div>
+                {/* Inventory Status */}
+                <div className="mt-2">
+                  {invLoading && <span className="text-gray-500">Checking availability…</span>}
 
+                  {/* If Square isn't tracking inventory → show Available (like the Square UI) */}
+                  {!invLoading && selectedBook?.inventoryTracked === false && (
+                    <span className="text-gw-green-1">Available</span>
+                  )}
+
+                  {/* Tracked items: use numeric logic */}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 5 && (
+                    <span className="text-gw-green-1">In stock</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 0 && invQty <= 5 && (
+                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty === 0 && (
+                    <span className="text-red-600">Out of stock</span>
+                  )}
+                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty == null && (
+                    <span className="text-gray-600">Availability unavailable</span>
+                  )}
+                </div>
                 {/* Book Info */}
                 <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {selectedBook.name}
