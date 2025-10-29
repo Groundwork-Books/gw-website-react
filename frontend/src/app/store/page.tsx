@@ -641,41 +641,47 @@ export default function BooksPage() {
                 <div
                   ref={modalImageRef}
                   data-book-image
-                  className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4"
+                  className="relative w-48 h-64 rounded-lg overflow-hidden mb-4"
                 >
-                <div className="w-48 h-64 bg-gray-200 rounded-lg flex items-center justify-center mb-4">
                   {selectedBook.imageUrl ? (
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={selectedBook.imageUrl}
-                        alt={selectedBook.name}
-                        fill={true}
-                        priority={true} // Modal images should load immediately
-                        sizes="192px"
-                        className="object-cover rounded-lg"
-                      />
-                    </div>
+                    <Image
+                      src={selectedBook.imageUrl}
+                      alt={selectedBook.name}
+                      fill={true}
+                      priority={true}
+                      sizes="192px"
+                      className="object-cover"
+                    />
                   ) : (
-                    <div className="text-gray-400 text-center">
-                      <svg
-                        className="w-16 h-16 mx-auto mb-2"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <p className="text-sm">No Image</p>
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <div className="text-gray-400 text-center">
+                        <svg
+                          className="w-16 h-16 mx-auto mb-2"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <p className="text-sm">No Image</p>
+                      </div>
                     </div>
                   )}
                 </div>
-                </div>
                 {/* Inventory Status */}
                 <div className="mt-2">
-                  {invLoading && <span className="text-gray-500">Checking availability…</span>}
+                  {invLoading && (
+                    <span className="inline-block text-gw-green-1 align-middle">
+                      <span
+                        className="inline-block w-4 h-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                        aria-hidden="true"
+                      />
+                      <span className="sr-only">Checking availability</span>
+                    </span>
+                  )}
 
                   {/* If Square isn't tracking inventory → show Available (like the Square UI) */}
                   {!invLoading && selectedBook?.inventoryTracked === false && (
