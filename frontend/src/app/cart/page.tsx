@@ -188,7 +188,7 @@ export default function CartPage() {
 
                           {/* Title/author + qty */}
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-gray-900">{item.book.name}</h3>
+                            <h3 className="pr-8 text-gray-900">{item.book.name}</h3>
                             {/* If you pass an author field, this will render like the mock */}
                             {bookMeta.author && (
                               <p className="text-sm text-gray-600">by {bookMeta.author}</p>

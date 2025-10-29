@@ -374,7 +374,19 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="bg-gw-green-2 border border-gw-green-1/50 p-4 rounded-md">
-                  <h3 className="font-semibold text-gw-green-1 mb-1">🔒 Secure Payment</h3>
+                  <h3 className="font-semibold text-gw-green-1 mb-1">
+                    <svg
+                      className="inline-block w-6 h-6 mb-1 align-middle"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 10V7a4 4 0 10-8 0v3" />
+                      <rect x="5" y="10" width="14" height="10" rx="2" ry="2" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14v3" />
+                    </svg> Secure Payment</h3>
                   <p className="text-sm text-gw-black/80">
                     You&apos;ll be redirected to Square&apos;s secure checkout to complete your purchase. A confirmation email will arrive after payment.
                   </p>
@@ -396,14 +408,14 @@ export default function CheckoutPage() {
                   type="submit"
                   form="checkout-form"
                   disabled={loading || !cart?.items || cart.items.length === 0}
-                  className="font-calluna w-full inline-flex justify-center items-center rounded-full bg-gw-green-1 text-white py-3 px-4 shadow hover:bg-gw-green-3 transition-colors disabled:opacity-50 hover:cursor-pointer disabled:cursor-not-allowed"
+                  className="w-full inline-flex justify-center items-center rounded-full bg-gw-green-1 text-white py-3 px-4 shadow hover:bg-gw-green-3 transition-colors disabled:opacity-50 hover:cursor-pointer disabled:cursor-not-allowed"
                 >
                   {loading ? 'Redirecting…' : 'Proceed to Payment ›'}
                 </button>
 
                 <Link
                   href="/cart"
-                  className="font-calluna w-full inline-flex justify-center items-center rounded-full border-2 border-gw-green-1 text-gw-green-1 bg-white font-semibold py-3 px-4 hover:bg-gw-green-2/50 transition-colors"
+                  className="w-full inline-flex justify-center items-center rounded-full border-2 border-gw-green-1 text-gw-green-1 bg-white font-semibold py-3 px-4 hover:bg-gw-green-2/50 transition-colors"
                 >
                   Back to Cart
                 </Link>
