@@ -17,7 +17,7 @@ import {
 import Image from 'next/image';
 import { flyToCart } from '@/lib/flyToCart';
 import BookCard from '@/components/BookCard';
-import { useInventory } from '@/lib/useInventory';
+import { useInventory, prefetchInventory } from '@/lib/useInventory';
 
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -67,6 +67,7 @@ export default function BooksPage() {
   const { addToCart } = useCart();
   const modalImageRef = useRef<HTMLDivElement | null>(null);
   const { qty: invQty, loading: invLoading } = useInventory(selectedBook?.squareVariationId);
+  const seededEdgesRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,10 +88,13 @@ export default function BooksPage() {
           }
         })
         .catch(() => {/* ignore; keep modal usable */});
+    } else {
+      // Warm the inventory cache for the opened modal item
+      prefetchInventory([selectedBook.squareVariationId]);
     }
 
     return () => { cancelled = true; };
-  }, [selectedBook?.id]);
+  }, [selectedBook?.id, selectedBook?.squareVariationId]);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -321,6 +325,48 @@ export default function BooksPage() {
     
     loadStoreData();
   }, [selectedGenre]);
+
+  // Prefetch inventory for visible carousels when books load on the homepage view, per-category group
+  useEffect(() => {
+    if (selectedGenre) return;
+    for (const id of categoryIds) {
+      const books = (booksByCategory[id] || []).slice(0, 30);
+      const ids = books.map(b => b.squareVariationId).filter(Boolean) as string[];
+      if (ids.length) prefetchInventory(ids, id);
+    }
+  }, [booksByCategory, selectedGenre]);
+
+  // Edge seeding: ensure top and bottom carousels get prefetched even if not intersecting yet, grouped
+  useEffect(() => {
+    if (selectedGenre) return;
+    if (seededEdgesRef.current) return;
+    const displayCategories = (categories.length > 0 ? categories : fallbackCategories).filter(cat => categoryIds.includes(cat.id));
+    if (displayCategories.length === 0) return;
+
+    const first = displayCategories[0];
+    const last = displayCategories[displayCategories.length - 1];
+
+    const firstBooks = (booksByCategory[first.id] || []).slice(0, 12);
+    const lastBooks = (booksByCategory[last.id] || []).slice(-12);
+
+    const firstIds = firstBooks.map(b => b.squareVariationId).filter(Boolean) as string[];
+    const lastIds = lastBooks.map(b => b.squareVariationId).filter(Boolean) as string[];
+
+    if (firstIds.length) prefetchInventory(firstIds, first.id);
+    if (lastIds.length) prefetchInventory(lastIds, last.id);
+
+    if (firstIds.length || lastIds.length) seededEdgesRef.current = true;
+  }, [booksByCategory, categories, selectedGenre]);
+
+  // Prefetch inventory for the current page in the tile grid, grouped by selectedGenre
+  useEffect(() => {
+    if (!selectedGenre) return;
+    const books = booksByCategory[selectedGenre] || [];
+    const startIndex = (currentPage - 1) * booksPerPage;
+    const pageBooks = books.slice(startIndex, startIndex + booksPerPage);
+    const ids = pageBooks.map(b => b.squareVariationId).filter(Boolean) as string[];
+    if (ids.length) prefetchInventory(ids, selectedGenre);
+  }, [selectedGenre, booksByCategory, currentPage, booksPerPage]);
 
   // Fetch book data only when categories are loaded and user selects a genre
   useEffect(() => {

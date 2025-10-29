@@ -12,7 +12,7 @@ import { Book } from '@/lib/types';
 import { searchBooks } from '@/lib/api';
 import Image from 'next/image';
 import BookCard from '@/components/BookCard';
-import { useInventory } from '@/lib/useInventory';
+import { useInventory, prefetchInventory } from '@/lib/useInventory';
 import { flyToCart } from '@/lib/flyToCart';
 
 interface SearchResult extends Book {
@@ -54,9 +54,11 @@ function SearchPageContent() {
           }
         })
         .catch(() => { /* ignore; keep modal usable */ });
+    } else {
+      prefetchInventory([selectedBook.squareVariationId]);
     }
     return () => { cancelled = true; };
-  }, [selectedBook?.id]);
+  }, [selectedBook?.id, selectedBook?.squareVariationId]);
 
   // close modal on Escape
   useEffect(() => {
@@ -103,6 +105,10 @@ function SearchPageContent() {
           score: result.searchScore
         }));
         setResults(resultsWithScore);
+
+        // Warm inventory for the first screenful of results
+        const ids = resultsWithScore.slice(0, 24).map(b => b.squareVariationId).filter(Boolean) as string[];
+        if (ids.length) prefetchInventory(ids);
       } else {
         setError('Search failed');
         setResults([]);
