@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/AuthContext';
 import { Book } from '@/lib/types';
 
+type BookWithVariation = Book & { squareVariationId?: string };
+type InventoryBatchResponse = { success?: boolean; available?: Record<string, number>; error?: string };
+type PrefetchResponse = { error?: string };
+
+
 interface PerformanceResult {
   categoryId: string;
   freshApiTime: number;
@@ -102,6 +107,69 @@ interface SuperCacheData {
   };
 }
 
+interface InventoryBatchTestResult {
+  params: {
+    nIds: number;
+    chunkSize: number;
+    runs: number;
+  };
+  batched: {
+    samplesMs: number[];
+    medianMs: number;
+    p95Ms: number;
+    minMs: number;
+    maxMs: number;
+    requestsMade: number;
+  };
+  single: {
+    samplesMs: number[];
+    medianMs: number;
+    p95Ms: number;
+    minMs: number;
+    maxMs: number;
+    requestsMade: number;
+  };
+  speedup: {
+    percent: number;
+    multiplier: number;
+  };
+  testTime: string;
+}
+
+interface PrefetchCoalesceResult {
+  params: {
+    nIds: number
+    runs: number
+    parallel: number
+    chunkSize: number
+  }
+  cold: {
+    ms: number
+  }
+  prefetch: {
+    supported: boolean
+    ms: number | null
+    ok: boolean
+  }
+  warm: {
+    ms: number
+    headerSource?: string | null
+  }
+  coalesce: {
+    samplesMs: number[]
+    medianMs: number
+    p95Ms: number
+    minMs: number
+    maxMs: number
+    headerCoalescedHits: number
+  }
+  speedup: {
+    warmVsColdMultiplier: number
+    warmVsColdPercent: number
+  }
+  testTime: string
+}
+
 export default function CacheMonitorPage() {
   const { user } = useAuth();
   const [redisStatus, setRedisStatus] = useState<CacheStatusResponse | null>(null);
@@ -110,6 +178,8 @@ export default function CacheMonitorPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [apiResults, setApiResults] = useState<ApiTestResult[]>([]);
   const [categoriesLastUpdated, setCategoriesLastUpdated] = useState<string | null>(null);
+  const [inventoryBatchResult, setInventoryBatchResult] = useState<InventoryBatchTestResult | null>(null);
+  const [prefetchCoalesceResult, setPrefetchCoalesceResult] = useState<PrefetchCoalesceResult | null>(null);
   const [loading, setLoading] = useState({
     redisStatus: false,
     performance: false,
@@ -117,6 +187,7 @@ export default function CacheMonitorPage() {
     categories: false,
     apiTest: false,
     cacheInvalidation: false,
+    inventoryBatch: false,
   });
 
   // Function to fetch Redis status
@@ -570,6 +641,366 @@ export default function CacheMonitorPage() {
     setLoading(prev => ({ ...prev, apiTest: false }));
   };
 
+  // Client-side inventory batch vs single test using existing endpoint
+  const runInventoryBatchTest = async () => {
+    setLoading(prev => ({ ...prev, inventoryBatch: true }));
+    setInventoryBatchResult(null);
+    try {
+      let cats = categories;
+      if (cats.length === 0) {
+        const r = await fetch('/api/square/categories');
+        const j = await r.json();
+        if (j.categories && Array.isArray(j.categories)) {
+          cats = j.categories;
+          setCategories(j.categories.slice(0, 10));
+        } else {
+          alert('Failed to load categories for inventory test');
+          setLoading(prev => ({ ...prev, inventoryBatch: false }));
+          return;
+        }
+      }
+
+      const picked = cats.slice(0, 2).map(c => c.id);
+      const variationIdsSet = new Set<string>();
+
+      for (const id of picked) {
+        const r = await fetch(`/api/square/category/${id}`);
+        const j = await r.json();
+        const books: Book[] = j.books || [];
+        for (const b of books as BookWithVariation[]) {
+          const v = b.squareVariationId;
+          if (v) variationIdsSet.add(v);
+        }
+      }
+
+      let variationIds = Array.from(variationIdsSet).filter(Boolean);
+      if (variationIds.length === 0) {
+        alert('No variation IDs found to test inventory');
+        setLoading(prev => ({ ...prev, inventoryBatch: false }));
+        return;
+      }
+
+      variationIds.sort();
+      if (variationIds.length > 200) variationIds = variationIds.slice(0, 200);
+
+      const postInventoryBatch = async (ids: string[]) => {
+        const res = await fetch('/api/square/inventory/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variationIds: ids,
+            locationId: process.env.SQUARE_LOCATION_ID
+          })
+        });
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) {
+          const text = await res.text();
+          throw new Error(text.slice(0, 200));
+        }
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Inventory batch failed');
+        return data;
+      };
+
+      const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+      const chunk = <T,>(arr: T[], size: number): T[][] => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+      const median = (nums: number[]) => {
+        const a = [...nums].sort((x, y) => x - y);
+        const n = a.length;
+        if (n === 0) return 0;
+        const m = Math.floor(n / 2);
+        return n % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+        };
+      const p95 = (nums: number[]) => {
+        if (nums.length === 0) return 0;
+        const a = [...nums].sort((x, y) => x - y);
+        const idx = Math.min(a.length - 1, Math.max(0, Math.ceil(0.95 * a.length) - 1));
+        return a[idx];
+      };
+
+      // Warm up TLS/edge
+      await postInventoryBatch(variationIds.slice(0, 2));
+
+      const runs = 5;
+      const chunkSize = 60;
+
+      // Batched mode
+      const batchedSamples: number[] = [];
+      let batchedRequests = 0;
+      const chunks = chunk(variationIds, Math.max(1, chunkSize));
+
+      for (let i = 0; i < runs; i++) {
+        const t0 = performance.now();
+        for (const ids of chunks) {
+          await postInventoryBatch(ids);
+          batchedRequests += 1;
+        }
+        const t1 = performance.now();
+        batchedSamples.push(Math.round(t1 - t0));
+      }
+
+      // Single mode
+      const singleSamples: number[] = [];
+      let singleRequests = 0;
+
+      for (let i = 0; i < runs; i++) {
+        const t0 = performance.now();
+        for (const id of variationIds) {
+          await postInventoryBatch([id]);
+          singleRequests += 1;
+          await sleep(1);
+        }
+        const t1 = performance.now();
+        singleSamples.push(Math.round(t1 - t0));
+      }
+
+      const batchedMedian = median(batchedSamples);
+      const singleMedian = median(singleSamples);
+      const result: InventoryBatchTestResult = {
+        params: {
+          nIds: variationIds.length,
+          chunkSize,
+          runs
+        },
+        batched: {
+          samplesMs: batchedSamples,
+          medianMs: batchedMedian,
+          p95Ms: p95(batchedSamples),
+          minMs: Math.min(...batchedSamples),
+          maxMs: Math.max(...batchedSamples),
+          requestsMade: batchedRequests
+        },
+        single: {
+          samplesMs: singleSamples,
+          medianMs: singleMedian,
+          p95Ms: p95(singleSamples),
+          minMs: Math.min(...singleSamples),
+          maxMs: Math.max(...singleSamples),
+          requestsMade: singleRequests
+        },
+        speedup: {
+          percent: singleMedian > 0 ? Math.round(((singleMedian - batchedMedian) / singleMedian) * 1000) / 10 : 0,
+          multiplier: batchedMedian > 0 ? Math.round((singleMedian / batchedMedian) * 10) / 10 : 0
+        },
+        testTime: new Date().toISOString()
+      };
+
+      setInventoryBatchResult(result);
+    } catch (e) {
+      console.error('Inventory batch test failed:', e);
+      alert('Inventory batch test failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setLoading(prev => ({ ...prev, inventoryBatch: false }));
+    }
+  };
+
+  // Load prefetch and coalesce results on component mount
+  const runPrefetchCoalesceTest = async () => {
+    setLoading(prev => ({ ...prev, inventoryBatch: true }));
+    setPrefetchCoalesceResult(null);
+    try {
+      let cats = categories;
+      if (cats.length === 0) {
+        const r = await fetch('/api/square/categories');
+        const j = await r.json();
+        if (j.categories && Array.isArray(j.categories)) {
+          cats = j.categories;
+          setCategories(j.categories.slice(0, 10));
+        } else {
+          alert('Failed to load categories for inventory test');
+          setLoading(prev => ({ ...prev, inventoryBatch: false }));
+          return;
+        }
+      }
+
+      const picked = cats.slice(0, 2).map(c => c.id);
+      const variationIdsSet = new Set<string>();
+
+      for (const id of picked) {
+        const r = await fetch(`/api/square/category/${id}`);
+        const j = await r.json();
+        const books: Book[] = j.books || [];
+        for (const b of books as BookWithVariation[]) {
+          const v = b.squareVariationId;
+          if (v) variationIdsSet.add(v);
+        }
+      }
+
+      let variationIds = Array.from(variationIdsSet).filter(Boolean);
+      if (variationIds.length === 0) {
+        alert('No variation IDs found to test inventory');
+        setLoading(prev => ({ ...prev, inventoryBatch: false }));
+        return;
+      }
+      variationIds.sort();
+      if (variationIds.length > 300) variationIds = variationIds.slice(0, 300);
+
+      const chunk = <T,>(arr: T[], size: number): T[][] => {
+        const out: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+      };
+      const median = (nums: number[]) => {
+        const a = [...nums].sort((x, y) => x - y);
+        const n = a.length;
+        if (n === 0) return 0;
+        const m = Math.floor(n / 2);
+        return n % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+      };
+      const p95 = (nums: number[]) => {
+        if (nums.length === 0) return 0;
+        const a = [...nums].sort((x, y) => x - y);
+        const idx = Math.min(a.length - 1, Math.max(0, Math.ceil(0.95 * a.length) - 1));
+        return a[idx];
+      };
+
+      const postInventoryBatch = async (ids: string[]) => {
+        const res = await fetch('/api/square/inventory/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variationIds: ids,
+            locationId: process.env.SQUARE_LOCATION_ID
+          })
+        });
+        const ct = res.headers.get('content-type') || '';
+        const textIfNotJson = !ct.includes('application/json') ? await res.text() : null;
+        const data: InventoryBatchResponse = ct.includes('application/json')
+          ? await res.json() as InventoryBatchResponse
+          : {};
+        if (!res.ok || data.error) {
+          throw new Error(data.error || textIfNotJson || 'Inventory batch failed');
+        }
+        return { data, headers: res.headers };
+      };
+
+      const tryPrefetch = async (ids: string[]) => {
+        try {
+          const t0 = performance.now();
+          const res = await fetch('/api/square/inventory/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Prefetch': '1' },
+            body: JSON.stringify({
+              variationIds: ids,
+              locationId: process.env.SQUARE_LOCATION_ID,
+              prefetchOnly: true
+            })
+          });
+          const ct = res.headers.get('content-type') || '';
+          const json: PrefetchResponse = ct.includes('application/json')
+            ? await res.json() as PrefetchResponse
+            : {};
+          const ok = res.ok && !json.error;
+          const ms = Math.round(performance.now() - t0);
+          return { supported: true, ok, ms };
+        } catch {
+          return { supported: true, ok: false, ms: null as number | null };
+        }
+      };
+
+      // clear inventory cache so cold path is cold
+      await fetch('/api/cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + btoa('admin:change_me_in_production')
+        },
+        body: JSON.stringify({ scope: 'inventory' })
+      });
+      await new Promise(r => setTimeout(r, 300));
+
+      const chunkSize = 60;
+      const chunks = chunk(variationIds, Math.max(1, chunkSize));
+
+      // cold run, batched
+      let t0 = performance.now();
+      for (const ids of chunks) {
+        await postInventoryBatch(ids);
+      }
+      const coldMs = Math.round(performance.now() - t0);
+
+      // prefetch
+      const prefetchRes = await tryPrefetch(variationIds);
+
+      // warm run after prefetch
+      await new Promise(r => setTimeout(r, 200));
+      t0 = performance.now();
+      // also capture one header to see cache hit source if you expose it
+      let headerSource: string | null = null;
+      for (const ids of chunks) {
+        const { headers } = await postInventoryBatch(ids);
+        if (!headerSource) headerSource = headers.get('X-Inventory-Source');
+      }
+      const warmMs = Math.round(performance.now() - t0);
+
+      // coalesce test, fire overlapping identical requests in parallel
+      const parallel = 20;
+      const targetIds = chunks[0] || variationIds.slice(0, Math.min(variationIds.length, chunkSize));
+      const samples: number[] = [];
+      let headerCoalescedHits = 0;
+
+      for (let run = 0; run < 5; run++) {
+        const promises = Array.from({ length: parallel }, async () => {
+          await new Promise(r => setTimeout(r, Math.floor(Math.random() * 10)));
+          const s = performance.now();
+          const { headers } = await postInventoryBatch(targetIds);
+          const ms = Math.round(performance.now() - s);
+          const h = headers.get('X-Coalesced') || headers.get('X-Coalesce-Hit');
+          if (h === '1' || h === 'true') headerCoalescedHits += 1;
+          return ms;
+        });
+        const times = await Promise.all(promises);
+        samples.push(...times);
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      const result: PrefetchCoalesceResult = {
+        params: {
+          nIds: variationIds.length,
+          runs: 5,
+          parallel,
+          chunkSize
+        },
+        cold: {
+          ms: coldMs
+        },
+        prefetch: {
+          supported: prefetchRes.supported,
+          ms: prefetchRes.ms,
+          ok: prefetchRes.ok
+        },
+        warm: {
+          ms: warmMs,
+          headerSource: headerSource || null
+        },
+        coalesce: {
+          samplesMs: samples,
+          medianMs: median(samples),
+          p95Ms: p95(samples),
+          minMs: Math.min(...samples),
+          maxMs: Math.max(...samples),
+          headerCoalescedHits
+        },
+        speedup: {
+          warmVsColdMultiplier: warmMs > 0 ? Math.round((coldMs / warmMs) * 10) / 10 : 0,
+          warmVsColdPercent: coldMs > 0 ? Math.round(((coldMs - warmMs) / coldMs) * 1000) / 10 : 0
+        },
+        testTime: new Date().toISOString()
+      };
+
+      setPrefetchCoalesceResult(result);
+    } catch (e) {
+      console.error('Prefetch/coalesce test failed:', e);
+      alert('Prefetch/coalesce test failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setLoading(prev => ({ ...prev, inventoryBatch: false }));
+    }
+  };
+
   // Load categories on component mount
   useEffect(() => {
     fetchCategories();
@@ -962,6 +1393,145 @@ export default function CacheMonitorPage() {
               )}
 
             </div>
+
+            {/* Inventory Batch Performance Test */}
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Inventory Batch Performance Test</h2>
+                  <p className="text-sm text-gray-600">Compare batched vs single inventory calls using the existing endpoint</p>
+                </div>
+                <div className="space-x-2">
+                  <button
+                    onClick={runInventoryBatchTest}
+                    disabled={loading.inventoryBatch}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:bg-gray-400"
+                  >
+                    {loading.inventoryBatch ? 'Testing...' : 'Test Inventory Batch'}
+                  </button>
+                  <button
+                    onClick={runPrefetchCoalesceTest}
+                    disabled={loading.inventoryBatch}
+                    className="bg-sky-600 text-white px-4 py-2 rounded-md hover:bg-sky-700 disabled:bg-gray-400"
+                  >
+                    {loading.inventoryBatch ? 'Testing...' : 'Test Prefetch + Coalesce'}
+                  </button>
+                </div>
+              </div>
+
+              {loading.inventoryBatch && (
+                <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600 mr-3"></div>
+                    <span className="text-emerald-800 text-sm">Running inventory batch test...</span>
+                  </div>
+                </div>
+              )}
+
+              {inventoryBatchResult && (
+                <div className="bg-white rounded-lg p-4 border">
+                  <h3 className="font-medium text-gray-900 mb-3">Inventory Batch Test Results</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="p-3 bg-green-50 rounded border-l-4 border-green-500">
+                      <p className="text-sm font-medium text-gray-600">Batched median</p>
+                      <p className="text-lg font-bold text-green-600">{inventoryBatchResult.batched.medianMs}ms</p>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded border-l-4 border-orange-500">
+                      <p className="text-sm font-medium text-gray-600">Singles median</p>
+                      <p className="text-lg font-bold text-orange-600">{inventoryBatchResult.single.medianMs}ms</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 rounded border-l-4 border-blue-500">
+                      <p className="text-sm font-medium text-gray-600">Speed Improvement</p>
+                      <p className="text-lg font-bold text-blue-600">{inventoryBatchResult.speedup.percent}%</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded border-l-4 border-purple-500">
+                      <p className="text-sm font-medium text-gray-600">Performance Boost</p>
+                      <p className="text-lg font-bold text-purple-600">{inventoryBatchResult.speedup.multiplier}x</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700">
+                    <div className="p-3 bg-gray-50 rounded border">
+                      <div>IDs tested: <span className="font-bold">{inventoryBatchResult.params.nIds}</span></div>
+                      <div>Chunk size: <span className="font-bold">{inventoryBatchResult.params.chunkSize}</span></div>
+                      <div>Runs: <span className="font-bold">{inventoryBatchResult.params.runs}</span></div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded border">
+                      <div className="font-medium mb-1">Batched</div>
+                      <div>p95: <span className="font-bold">{inventoryBatchResult.batched.p95Ms}ms</span></div>
+                      <div>min/max: <span className="font-bold">{inventoryBatchResult.batched.minMs}</span>/<span className="font-bold">{inventoryBatchResult.batched.maxMs}</span> ms</div>
+                      <div>requests: <span className="font-bold">{inventoryBatchResult.batched.requestsMade}</span></div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded border">
+                      <div className="font-medium mb-1">Singles</div>
+                      <div>p95: <span className="font-bold">{inventoryBatchResult.single.p95Ms}ms</span></div>
+                      <div>min/max: <span className="font-bold">{inventoryBatchResult.single.minMs}</span>/<span className="font-bold">{inventoryBatchResult.single.maxMs}</span> ms</div>
+                      <div>requests: <span className="font-bold">{inventoryBatchResult.single.requestsMade}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t flex justify-between text-sm text-gray-600">
+                    <span>Tested: {new Date(inventoryBatchResult.testTime).toLocaleTimeString()}</span>
+                    <span>Samples per mode: 7</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            {prefetchCoalesceResult && (
+              <div className="bg-white rounded-lg p-4 border mt-4">
+                <h3 className="font-medium text-gray-900 mb-3">Prefetch and Coalesce Results</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="p-3 bg-orange-50 rounded border-l-4 border-orange-500">
+                    <p className="text-sm font-medium text-gray-600">Cold batched</p>
+                    <p className="text-lg font-bold text-orange-600">{prefetchCoalesceResult.cold.ms}ms</p>
+                  </div>
+                  <div className="p-3 bg-emerald-50 rounded border-l-4 border-emerald-500">
+                    <p className="text-sm font-medium text-gray-600">Prefetch</p>
+                    <p className="text-lg font-bold text-emerald-600">
+                      {prefetchCoalesceResult.prefetch.supported ? `${prefetchCoalesceResult.prefetch.ms}ms` : 'not supported'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded border-l-4 border-green-500">
+                    <p className="text-sm font-medium text-gray-600">Warm batched</p>
+                    <p className="text-lg font-bold text-green-600">{prefetchCoalesceResult.warm.ms}ms</p>
+                    {prefetchCoalesceResult.warm.headerSource && (
+                      <p className="text-xs text-gray-500">Source: {prefetchCoalesceResult.warm.headerSource}</p>
+                    )}
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded border-l-4 border-purple-500">
+                    <p className="text-sm font-medium text-gray-600">Warm speedup</p>
+                    <p className="text-lg font-bold text-purple-600">
+                      {prefetchCoalesceResult.speedup.warmVsColdMultiplier}x, {prefetchCoalesceResult.speedup.warmVsColdPercent}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700">
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="font-medium mb-1">Params</div>
+                    <div>IDs: <span className="font-bold">{prefetchCoalesceResult.params.nIds}</span></div>
+                    <div>Chunk: <span className="font-bold">{prefetchCoalesceResult.params.chunkSize}</span></div>
+                    <div>Parallel: <span className="font-bold">{prefetchCoalesceResult.params.parallel}</span></div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="font-medium mb-1">Coalesce timings</div>
+                    <div>median: <span className="font-bold">{prefetchCoalesceResult.coalesce.medianMs}ms</span></div>
+                    <div>p95: <span className="font-bold">{prefetchCoalesceResult.coalesce.p95Ms}ms</span></div>
+                    <div>min/max: <span className="font-bold">{prefetchCoalesceResult.coalesce.minMs}</span>/<span className="font-bold">{prefetchCoalesceResult.coalesce.maxMs}</span> ms</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <div className="font-medium mb-1">Server signals</div>
+                    <div>coalesced hits: <span className="font-bold">{prefetchCoalesceResult.coalesce.headerCoalescedHits}</span></div>
+                    <div>prefetch ok: <span className="font-bold">{prefetchCoalesceResult.prefetch.ok ? 'yes' : 'no'}</span></div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t text-sm text-gray-600 flex justify-between">
+                  <span>Samples: {prefetchCoalesceResult.coalesce.samplesMs.length}</span>
+                  <span>Tested: {new Date(prefetchCoalesceResult.testTime).toLocaleTimeString()}</span>
+                </div>
+              </div>
+            )}
 
             {/* API Response Times Section */}
             <div className="bg-gray-50 rounded-lg p-6">

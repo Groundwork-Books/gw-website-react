@@ -86,7 +86,7 @@ export default function CheckoutPage() {
             ...customerInfo,
             userId: user?.uid
           },
-          locationId: process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID
+          locationId: process.env.SQUARE_LOCATION_ID
         }),
       });
 
