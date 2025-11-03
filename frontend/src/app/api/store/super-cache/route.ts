@@ -24,9 +24,12 @@ interface SquareMoneyAmount {
 interface SquareItemVariationData {
   price_money?: SquareMoneyAmount;
   item_id?: string;
+  track_inventory?: boolean | 'TRACK' | 'NONE';
 }
 
 interface SquareItemVariation {
+  // Square includes an id per variation in the search-catalog-items response
+  id?: string;
   item_variation_data?: SquareItemVariationData;
 }
 
@@ -69,6 +72,10 @@ interface SuperCacheBook {
   categoryId: string;
   imageId: string | null;
   imageUrl?: string | null;
+
+  // Fields carried to the frontend
+  squareVariationId?: string | null;
+  inventoryTracked?: boolean;
 }
 
 interface Category {
@@ -350,7 +357,18 @@ export async function POST(request: NextRequest) {
         const books: SuperCacheBook[] = data.items.map((item: SquareCatalogItem): SuperCacheBook => {
           const itemData = item.item_data;
           const variation = itemData?.variations?.[0];
+
+          // Pull price
           const price = variation?.item_variation_data?.price_money;
+
+          // Include variation id and tracking flag
+          const squareVariationId =
+            (variation && typeof variation.id === 'string' && variation.id.length > 0)
+              ? variation.id
+              : null;
+
+          const track = variation?.item_variation_data?.track_inventory;
+          const inventoryTracked = track === true || track === 'TRACK';
 
           return {
             id: item.id,
@@ -360,7 +378,10 @@ export async function POST(request: NextRequest) {
             currency: price?.currency || 'USD',
             categoryId: categoryId,
             imageId: itemData?.image_ids?.[0] || null,
-            imageUrl: null
+            imageUrl: null,
+
+            squareVariationId,
+            inventoryTracked
           };
         });
 

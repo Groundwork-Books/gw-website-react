@@ -12,6 +12,7 @@ export interface Book {
   squareVariationId?: string;
   
   inventoryTracked?: boolean;
+  available?: boolean;
 }
 
 export interface CartItem {

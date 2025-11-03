@@ -19,6 +19,30 @@ import { flyToCart } from '@/lib/flyToCart';
 import BookCard from '@/components/BookCard';
 import { useInventory, prefetchInventory } from '@/lib/useInventory';
 
+// Batch inventory lookup for filtering with location scoping
+async function fetchInventoryMap(ids: string[]): Promise<{ qty: Record<string, number>; tracked: Record<string, boolean> }> {
+  const variationIds = Array.from(new Set(ids.filter(Boolean)));
+  if (variationIds.length === 0) return { qty: {}, tracked: {} };
+  const qty: Record<string, number> = {};
+  const tracked: Record<string, boolean> = {};
+  const BATCH = 80;
+  for (let i = 0; i < variationIds.length; i += BATCH) {
+    const chunk = variationIds.slice(i, i + BATCH);
+    const r = await fetch('/api/square/inventory/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        variationIds: chunk
+      }),
+    });
+    if (!r.ok) continue;
+    const j = await r.json();
+    Object.assign(qty, j?.available || {});
+    Object.assign(tracked, j?.tracked || {});
+  }
+  return { qty, tracked: tracked };
+}
+
 // Read categories from env
 const categoryIds = (process.env.NEXT_PUBLIC_CATEGORY_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 const categoryNames = (process.env.NEXT_PUBLIC_CATEGORY_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -68,6 +92,12 @@ export default function BooksPage() {
   const modalImageRef = useRef<HTMLDivElement | null>(null);
   const { qty: invQty, loading: invLoading } = useInventory(selectedBook?.squareVariationId);
   const seededEdgesRef = useRef(false);
+
+  // Filtered views and readiness per category
+  const [filteredBooksByCategory, setFilteredBooksByCategory] = useState<Record<string, Book[]>>({});
+  const [filteredReady, setFilteredReady] = useState<Set<string>>(new Set());
+  const [filteredSelectedBooks, setFilteredSelectedBooks] = useState<Book[]>([]);
+  const [selectedFilterReady, setSelectedFilterReady] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -330,11 +360,12 @@ export default function BooksPage() {
   useEffect(() => {
     if (selectedGenre) return;
     for (const id of categoryIds) {
-      const books = (booksByCategory[id] || []).slice(0, 30);
+      const source = (filteredReady.has(id) ? filteredBooksByCategory : booksByCategory);
+      const books = (source[id] || []).slice(0, 30);
       const ids = books.map(b => b.squareVariationId).filter(Boolean) as string[];
       if (ids.length) prefetchInventory(ids, id);
     }
-  }, [booksByCategory, selectedGenre]);
+  }, [booksByCategory, filteredBooksByCategory, filteredReady, selectedGenre]);
 
   // Edge seeding: ensure top and bottom carousels get prefetched even if not intersecting yet, grouped
   useEffect(() => {
@@ -368,6 +399,107 @@ export default function BooksPage() {
     if (ids.length) prefetchInventory(ids, selectedGenre);
   }, [selectedGenre, booksByCategory, currentPage, booksPerPage]);
 
+  async function ensureVariationIds(books: Book[]): Promise<Book[]> {
+    const missing = books.filter(b => !b.squareVariationId).map(b => b.id);
+    if (missing.length === 0) return books;
+    try {
+      const r = await fetch('/api/square/books/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookIds: missing }),
+      });
+      if (!r.ok) return books;
+      const d = await r.json();
+      const byId = new Map<string, Book>((d?.books || []).map((bk: Book) => [bk.id, bk]));
+      return books.map(b => byId.get(b.id) ? { ...b, ...byId.get(b.id)! } : b);
+    } catch {
+      return books;
+    }
+  }
+
+  // Filter selected-genre books by inventory before pagination, strict predicate
+  useEffect(() => {
+    if (!selectedGenre) {
+      setFilteredSelectedBooks([]);
+      setSelectedFilterReady(null);
+      return;
+    }
+    const books = booksByCategory[selectedGenre] || [];
+    if (books.length === 0) {
+      setFilteredSelectedBooks([]);
+      setSelectedFilterReady(selectedGenre);
+      return;
+    }
+    (async () => {
+      try {
+        const enriched = await ensureVariationIds(books);
+        const ids = enriched.map(b => b.squareVariationId).filter(Boolean) as string[];
+        const inv = await fetchInventoryMap(ids);
+        const filtered = enriched.filter(b => {
+          const id = b.squareVariationId
+          if (!id) return true
+          const isTracked = inv.tracked[id]
+          if (isTracked === true) {
+            const q = inv.qty[id]
+            const n = typeof q === 'number' ? q : 0
+            return n > 0
+          }
+          if (b.inventoryTracked === false) return true
+          return true
+        });
+        setFilteredSelectedBooks(filtered);
+        setSelectedFilterReady(selectedGenre);
+      } catch {
+        // keep original list if inventory lookup fails
+        setFilteredSelectedBooks(books);
+        setSelectedFilterReady(selectedGenre);
+      }
+    })();
+  }, [selectedGenre, booksByCategory]);
+
+  // Filter default carousels by inventory with readiness tracking, strict predicate
+  useEffect(() => {
+    if (selectedGenre) return;
+    const displayCategories = (categories.length > 0 ? categories : fallbackCategories).filter(cat => categoryIds.includes(cat.id));
+    if (displayCategories.length === 0) return;
+
+    (async () => {
+      try {
+        const next: Record<string, Book[]> = {};
+        const ready = new Set(filteredReady);
+        for (const cat of displayCategories) {
+          const source = (booksByCategory[cat.id] || [])
+          if (source.length === 0) {
+            next[cat.id] = [];
+            ready.add(cat.id);
+            continue;
+          }
+          const enriched = await ensureVariationIds(source);
+          const ids = enriched.map(b => b.squareVariationId).filter(Boolean) as string[];
+          const inv = await fetchInventoryMap(ids);
+          const filtered = enriched.filter(b => {
+            const id = b.squareVariationId
+            if (!id) return true
+            const isTracked = inv.tracked[id]
+            if (isTracked === true) {
+              const q = inv.qty[id]
+              const n = typeof q === 'number' ? q : 0
+              return n > 0
+            }
+            if (b.inventoryTracked === false) return true
+            return true
+          });
+          next[cat.id] = filtered.slice(0, 20);
+          ready.add(cat.id);
+        }
+        setFilteredBooksByCategory(next);
+        setFilteredReady(ready);
+      } catch {
+        // leave previously computed values
+      }
+    })();
+  }, [booksByCategory, categories, selectedGenre]);
+
   // Fetch book data only when categories are loaded and user selects a genre
   useEffect(() => {
     if (categories.length > 0 && selectedGenre) {
@@ -394,8 +526,10 @@ export default function BooksPage() {
   // Memoize expensive calculations to prevent unnecessary recalculations
   const selectedBooks = useMemo(() => {
     if (!selectedGenre) return [];
-    return booksByCategory[selectedGenre] || [];
-  }, [selectedGenre, booksByCategory]);
+    const base = booksByCategory[selectedGenre] || [];
+    if (selectedFilterReady === selectedGenre) return filteredSelectedBooks;
+    return base;
+  }, [selectedGenre, booksByCategory, filteredSelectedBooks, selectedFilterReady]);
 
   const categoriesToDisplay = useMemo(() => {
     if (selectedGenre) {
@@ -631,7 +765,10 @@ export default function BooksPage() {
             </div>
           ) : (
             categoriesToDisplay.map((cat: {id: string, name: string}) => {
-              const books = (booksByCategory[cat.id] || []).slice(0, 20);
+              const ready = filteredReady.has(cat.id);
+              const books = ready
+                ? (filteredBooksByCategory[cat.id] || [])
+                : []; // changed to avoid rendering unfiltered items
               return (
                 <div key={cat.id} className="mb-12">
                   <h2 className="text-2xl text-gw-green-1 font-calluna font-bold mb-4">{cat.name}</h2>
@@ -729,22 +866,23 @@ export default function BooksPage() {
                     </span>
                   )}
 
-                  {/* If Square isn't tracking inventory → show Available (like the Square UI) */}
-                  {!invLoading && selectedBook?.inventoryTracked === false && (
+                  {!invLoading && typeof invQty === 'number' && invQty > 5 && (
+                    <span className="text-gw-green-1">In stock</span>
+                  )}
+
+                  {!invLoading && typeof invQty === 'number' && invQty > 0 && invQty <= 5 && (
+                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
+                  )}
+
+                  {!invLoading && typeof invQty === 'number' && invQty <= 0 && (
+                    <span className="text-red-600">Out of stock</span>
+                  )}
+
+                  {!invLoading && typeof invQty !== 'number' && selectedBook?.inventoryTracked === false && (
                     <span className="text-gw-green-1">Available</span>
                   )}
 
-                  {/* Tracked items: use numeric logic */}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 5 && (
-                    <span className="text-gw-green-1">In stock</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 0 && invQty <= 5 && (
-                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty === 0 && (
-                    <span className="text-red-600">Out of stock</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty == null && (
+                  {!invLoading && typeof invQty !== 'number' && selectedBook?.inventoryTracked !== false && (
                     <span className="text-gray-600">Availability unavailable</span>
                   )}
                 </div>
