@@ -1,4 +1,3 @@
-// lib/useInventory.ts
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,10 +6,12 @@ type InventoryMap = Record<string, number>;
 
 const CACHE_TTL_MS = 2 * 60 * 1000;
 const COALESCE_MS = 75;
-const MAX_IDS_PER_BATCH = 80;
+const MAX_IDS_PER_BATCH = 100;
 
-const cache = new Map<string, { qty: number; expires: number }>();
-const listeners = new Map<string, Array<{ resolve: (n: number) => void; reject: (e: unknown) => void }>>();
+type Listener = { resolve: (n: number | null) => void; reject: (e: unknown) => void };
+
+const cache = new Map<string, { qty: number | null; expires: number }>();
+const listeners = new Map<string, Array<{ resolve: (n: number | null) => void; reject: (e: unknown) => void }>>();
 const queued = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -53,7 +54,8 @@ function scheduleFlush(group?: string) {
 
         const now = Date.now();
         for (const id of ids) {
-          const qty = Number(merged[id] ?? 0);
+          const has = Object.prototype.hasOwnProperty.call(merged, id);
+          const qty = has ? Number(merged[id]) : null;
           cache.set(id, { qty, expires: now + CACHE_TTL_MS });
           const ls = listeners.get(id);
           if (ls && ls.length) {
@@ -90,7 +92,8 @@ function scheduleFlush(group?: string) {
 
       const now = Date.now();
       for (const id of ids) {
-        const qty = Number(merged[id] ?? 0);
+        const has = Object.prototype.hasOwnProperty.call(merged, id);
+        const qty = has ? Number(merged[id]) : null;
         cache.set(id, { qty, expires: now + CACHE_TTL_MS });
         const ls = listeners.get(id);
         if (ls && ls.length) {
@@ -110,15 +113,19 @@ function scheduleFlush(group?: string) {
   }, COALESCE_MS);
 }
 
-function getInventory(variationId: string): Promise<number> {
+function getInventory(variationId: string): Promise<number | null> {
   const now = Date.now();
   const hit = cache.get(variationId);
   if (hit && hit.expires > now) return Promise.resolve(hit.qty);
 
-  return new Promise<number>((resolve, reject) => {
-    const arr = listeners.get(variationId) || [];
-    arr.push({ resolve, reject });
-    listeners.set(variationId, arr);
+  return new Promise<number | null>((resolve, reject) => {
+    const entry: Listener = { resolve, reject };
+    const arr = listeners.get(variationId);
+    if (arr) {
+      arr.push(entry);
+    } else {
+      listeners.set(variationId, [entry]);
+    }
     scheduleFlush();
   });
 }

@@ -42,8 +42,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'variationIds required' }, { status: 400 });
     }
 
+    if (!process.env.SQUARE_LOCATION_ID && !locationId) {
+      console.warn('Inventory: SQUARE_LOCATION_ID not set on server, counts aggregate across all locations');
+    }
+
     const ids = Array.from(new Set(variationIds.filter(Boolean)));
     const available: Record<string, number> = {};
+    const tracked: Record<string, boolean> = {};
     const loc = locationId || process.env.SQUARE_LOCATION_ID;
 
     for (const group of chunk(ids, 100)) {
@@ -76,8 +81,9 @@ export async function POST(req: NextRequest) {
 
         // Sum IN_STOCK per variation
         for (const c of j.counts ?? []) {
+          const id = c.catalog_object_id;
+          tracked[id] = true;
           if (c.state === 'IN_STOCK') {
-            const id = c.catalog_object_id;
             const q = parseFloat(c.quantity);
             available[id] = (available[id] ?? 0) + (isNaN(q) ? 0 : q);
           }
@@ -87,7 +93,7 @@ export async function POST(req: NextRequest) {
       } while (cursor);
     }
 
-    return NextResponse.json({ success: true, available });
+    return NextResponse.json({ success: true, available, tracked });
   } catch (e) {
     return NextResponse.json({ error: 'Failed to retrieve inventory', details: String(e) }, { status: 500 });
   }

@@ -15,10 +15,50 @@ import BookCard from '@/components/BookCard';
 import { useInventory, prefetchInventory } from '@/lib/useInventory';
 import { flyToCart } from '@/lib/flyToCart';
 
+// Batch inventory lookup for filtering
+async function fetchInventoryMap(ids: string[]): Promise<{ qty: Record<string, number>; tracked: Record<string, boolean> }> {
+  const variationIds = Array.from(new Set(ids.filter(Boolean)));
+  if (variationIds.length === 0) return { qty: {}, tracked: {} };
+  const qty: Record<string, number> = {};
+  const tracked: Record<string, boolean> = {};
+  const BATCH = 80;
+  for (let i = 0; i < variationIds.length; i += BATCH) {
+    const chunk = variationIds.slice(i, i + BATCH);
+    const r = await fetch('/api/square/inventory/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variationIds: chunk }),
+    });
+    if (!r.ok) continue;
+    const j = await r.json();
+    Object.assign(qty, j?.available || {});
+    Object.assign(tracked, j?.tracked || {});
+  }
+  return { qty, tracked: tracked };
+}
+
 interface SearchResult extends Book {
   searchScore?: number;
   searchSnippet?: string;
   score?: number; // Keep for backward compatibility
+}
+
+async function ensureVariationIds(books: Book[]): Promise<Book[]> {
+  const missing = books.filter(b => !b.squareVariationId).map(b => b.id);
+  if (missing.length === 0) return books;
+  try {
+    const r = await fetch('/api/square/books/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookIds: missing }),
+    });
+    if (!r.ok) return books;
+    const d = await r.json();
+    const byId = new Map<string, Book>((d?.books || []).map((bk: Book) => [bk.id, bk]));
+    return books.map(b => byId.get(b.id) ? { ...b, ...byId.get(b.id)! } : b);
+  } catch {
+    return books;
+  }
 }
 
 function SearchPageContent() {
@@ -95,20 +135,37 @@ function SearchPageContent() {
     setHasSearched(true);
 
     try {
-      const data = await searchBooks(searchQuery, 30);
+      const data = await searchBooks(searchQuery, 100);
 
       if (data.success) {
         // Convert searchScore to score for compatibility
-        const results = data.results || []; // Ensure results is always an array
-        const resultsWithScore = results.map(result => ({
+        const base = (data.results || []) as SearchResult[];
+        const resultsWithScore = base.map(result => ({
           ...result,
           score: result.searchScore
         }));
-        setResults(resultsWithScore);
+        const enriched = await ensureVariationIds(resultsWithScore);
+        const ids = enriched.map(b => b.squareVariationId).filter(Boolean) as string[];
+        const inv = await fetchInventoryMap(ids);
+
+        const filtered = enriched.filter(b => {
+          const id = b.squareVariationId
+          if (!id) return true
+          const isTracked = inv.tracked[id]
+          if (isTracked === true) {
+            const q = inv.qty[id]
+            const n = typeof q === 'number' ? q : 0
+            return n > 0
+          }
+          if (b.inventoryTracked === false) return true
+          return true
+        });
+        
+        setResults(filtered);
 
         // Warm inventory for the first screenful of results
-        const ids = resultsWithScore.slice(0, 24).map(b => b.squareVariationId).filter(Boolean) as string[];
-        if (ids.length) prefetchInventory(ids);
+        const warmIds = filtered.slice(0, 24).map(b => b.squareVariationId).filter(Boolean) as string[];
+        if (warmIds.length) prefetchInventory(warmIds);
       } else {
         setError('Search failed');
         setResults([]);
@@ -330,22 +387,23 @@ function SearchPageContent() {
                     </span>
                   )}
 
-                  {/* If Square isn't tracking inventory → show Available (like the Square UI) */}
-                  {!invLoading && selectedBook?.inventoryTracked === false && (
+                  {!invLoading && typeof invQty === 'number' && invQty > 5 && (
+                    <span className="text-gw-green-1">In stock</span>
+                  )}
+
+                  {!invLoading && typeof invQty === 'number' && invQty > 0 && invQty <= 5 && (
+                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
+                  )}
+
+                  {!invLoading && typeof invQty === 'number' && invQty <= 0 && (
+                    <span className="text-red-600">Out of stock</span>
+                  )}
+
+                  {!invLoading && typeof invQty !== 'number' && selectedBook?.inventoryTracked === false && (
                     <span className="text-gw-green-1">Available</span>
                   )}
 
-                  {/* Tracked items: use numeric logic */}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 5 && (
-                    <span className="text-gw-green-1">In stock</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty != null && invQty > 0 && invQty <= 5 && (
-                    <span className="text-amber-600">Low stock: ({invQty} left)</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty === 0 && (
-                    <span className="text-red-600">Out of stock</span>
-                  )}
-                  {!invLoading && selectedBook?.inventoryTracked !== false && invQty == null && (
+                  {!invLoading && typeof invQty !== 'number' && selectedBook?.inventoryTracked !== false && (
                     <span className="text-gray-600">Availability unavailable</span>
                   )}
                 </div>
