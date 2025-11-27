@@ -130,6 +130,13 @@ function getInventory(variationId: string): Promise<number | null> {
   });
 }
 
+export function getCachedInventory(variationId: string): number | null | undefined {
+  const hit = cache.get(variationId);
+  if (!hit) return undefined;
+  if (hit.expires <= Date.now()) return undefined;
+  return hit.qty;
+}
+
 export function prefetchInventory(ids: string[], group?: string) {
   const now = Date.now();
   if (group) {
