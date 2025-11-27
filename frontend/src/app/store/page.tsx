@@ -17,7 +17,7 @@ import {
 import Image from 'next/image';
 import { flyToCart } from '@/lib/flyToCart';
 import BookCard from '@/components/BookCard';
-import { useInventory, prefetchInventory } from '@/lib/useInventory';
+import { useInventory, prefetchInventory, getCachedInventory } from '@/lib/useInventory';
 
 // Batch inventory lookup for filtering with location scoping
 async function fetchInventoryMap(ids: string[]): Promise<{ qty: Record<string, number>; tracked: Record<string, boolean> }> {
@@ -25,21 +25,20 @@ async function fetchInventoryMap(ids: string[]): Promise<{ qty: Record<string, n
   if (variationIds.length === 0) return { qty: {}, tracked: {} };
   const qty: Record<string, number> = {};
   const tracked: Record<string, boolean> = {};
-  const BATCH = 80;
-  for (let i = 0; i < variationIds.length; i += BATCH) {
-    const chunk = variationIds.slice(i, i + BATCH);
-    const r = await fetch('/api/square/inventory/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        variationIds: chunk
-      }),
-    });
-    if (!r.ok) continue;
-    const j = await r.json();
-    Object.assign(qty, j?.available || {});
-    Object.assign(tracked, j?.tracked || {});
+
+  // kick off background batched inventory fetch for these ids
+  prefetchInventory(variationIds, 'store-filter');
+
+  // fill from cache if available, without blocking on network
+  for (const id of variationIds) {
+    const cached = getCachedInventory(id);
+    if (typeof cached === 'number') {
+      qty[id] = cached;
+    } else if (cached === null) {
+      qty[id] = 0;
+    }
   }
+
   return { qty, tracked: tracked };
 }
 
