@@ -12,26 +12,41 @@ import { Book } from '@/lib/types';
 import { searchBooks } from '@/lib/api';
 import Image from 'next/image';
 import BookCard from '@/components/BookCard';
-import { useInventory, prefetchInventory, getCachedInventory } from '@/lib/useInventory';
+import { useInventory, prefetchInventory } from '@/lib/useInventory';
 import { flyToCart } from '@/lib/flyToCart';
 
 // Batch inventory lookup for filtering
 async function fetchInventoryMap(ids: string[]): Promise<{ qty: Record<string, number>; tracked: Record<string, boolean> }> {
   const variationIds = Array.from(new Set(ids.filter(Boolean)));
   if (variationIds.length === 0) return { qty: {}, tracked: {} };
+
   const qty: Record<string, number> = {};
   const tracked: Record<string, boolean> = {};
+  const BATCH = 80;
 
-  // kick off background batched inventory fetch for these ids
-  prefetchInventory(variationIds, 'search-filter');
+  const chunks: string[][] = [];
+  for (let i = 0; i < variationIds.length; i += BATCH) {
+    chunks.push(variationIds.slice(i, i + BATCH));
+  }
 
-  // fill from cache if available, without blocking on network
-  for (const id of variationIds) {
-    const cached = getCachedInventory(id);
-    if (typeof cached === 'number') {
-      qty[id] = cached;
-    } else if (cached === null) {
-      qty[id] = 0;
+  const responses = await Promise.all(
+    chunks.map(chunk =>
+      fetch('/api/square/inventory/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variationIds: chunk }),
+      }).catch(() => null)
+    )
+  );
+
+  for (const r of responses) {
+    if (!r || !r.ok) continue;
+    try {
+      const j = await r.json();
+      Object.assign(qty, j?.available || {});
+      Object.assign(tracked, j?.tracked || {});
+    } catch {
+      // ignore parse errors for this chunk
     }
   }
 
