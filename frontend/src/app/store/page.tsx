@@ -671,7 +671,7 @@ export default function BooksPage() {
               </p>
             </div>
 
-            {loadingBooks ? (
+            {loadingBooks && paginationData.paginatedBooks.length === 0 ? (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gw-green-1 mb-4"></div>
@@ -779,9 +779,10 @@ export default function BooksPage() {
           ) : (
             categoriesToDisplay.map((cat: {id: string, name: string}) => {
               const ready = filteredReady.has(cat.id);
+              const baseBooks = booksByCategory[cat.id] || [];
               const books = ready
-                ? (filteredBooksByCategory[cat.id] || [])
-                : []; // changed to avoid rendering unfiltered items
+                ? (filteredBooksByCategory[cat.id] || baseBooks)
+                : baseBooks; // initially show cached items, later swap to filtered when ready
               return (
                 <div key={cat.id} className="mb-12">
                   <h2 className="text-2xl text-gw-green-1 font-calluna font-bold mb-4">{cat.name}</h2>
