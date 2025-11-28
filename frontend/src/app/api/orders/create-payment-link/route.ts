@@ -116,15 +116,25 @@ export async function POST(req: NextRequest) {
         },
         checkout_options: {
           ask_for_shipping_address: false,
-          redirect_url: body.redirectUrl || undefined
-        }
+          redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${orderId}`,
+          accepted_payment_methods: {
+            apple_pay: true,
+            google_pay: true
+          }
+        },
+        payment_note: `Bookstore Order ${orderId} - BOPIS (Buy Online, Pickup In Store)`
       })
     });
 
     const paymentLinkData = await paymentLinkResponse.json();
 
     if (paymentLinkResponse.ok && paymentLinkData.payment_link) {
-      return NextResponse.json({ success: true, paymentLink: paymentLinkData.payment_link });
+      return NextResponse.json({
+        success: true,
+        order_id: orderId,
+        payment_link_url: paymentLinkData.payment_link.url,
+        payment_link_id: paymentLinkData.payment_link.id
+      });
     } else {
       return NextResponse.json({
         error: 'Failed to create Payment Link',

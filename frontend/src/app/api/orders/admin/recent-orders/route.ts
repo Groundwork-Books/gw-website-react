@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
-    const status = searchParams.get('status');
-    // status: 'PREPARED', 'COMPLETED', etc.
+    const status = searchParams.get('status'); // status: 'PREPARED', 'COMPLETED', etc.
     const showUnpaid = searchParams.get('show_unpaid') === 'true';
     
     const searchResponse = await fetch('https://connect.squareup.com/v2/orders/search', {
