@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Helper function for Square API headers
 const getSquareHeaders = (includeContentType = true) => {
@@ -15,90 +15,163 @@ const getSquareHeaders = (includeContentType = true) => {
   return headers;
 };
 
-type AdminStatus = 'processed' | 'ready' | 'picked_up' | 'PREPARED' | 'COMPLETED' | 'RESERVED';
+type AllowedStatus = 'PREPARED' | 'COMPLETED' | 'RESERVED';
 
-function mapStatus(status: AdminStatus) {
-  // Accept both admin-friendly strings and Square states
-  if (status === 'processed' || status === 'RESERVED') {
-    return { fulfillment: 'RESERVED', order: 'OPEN' };
-  }
-  if (status === 'ready' || status === 'PREPARED') {
-    return { fulfillment: 'PREPARED', order: 'OPEN' };
-  }
-  // picked_up or COMPLETED
-  return { fulfillment: 'COMPLETED', order: 'COMPLETED' };
+function isAllowedStatus(value: unknown): value is AllowedStatus {
+  return value === 'PREPARED' || value === 'COMPLETED' || value === 'RESERVED';
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { orderId: string } }) {
+type Fulfillment = {
+  uid?: string;
+  type?: string;
+  state?: string;
+  pickup_details?: {
+    note?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type OrderFromSquare = {
+  version?: number;
+  fulfillments?: Fulfillment[];
+  [key: string]: unknown;
+};
+
+type OrderResponseFromSquare = {
+  order?: OrderFromSquare;
+};
+
+// Update order pickup status (processed / ready / picked up)
+export async function PUT(
+  request: Request,
+  { params }: { params: { orderId: string } }
+) {
   try {
     const { orderId } = params;
-    const body = await req.json();
-    const status: AdminStatus = body.status;
 
-    if (!status) {
-      return NextResponse.json({ error: 'Missing status' }, { status: 400 });
-    }
-
-    // 1) Retrieve the order to get version and fulfillment uid
-    const orderResponse = await fetch(`https://connect.squareup.com/v2/orders/${orderId}`, {
-      method: 'GET',
-      headers: getSquareHeaders(false)
-    });
-
-    const orderData = await orderResponse.json();
-
-    if (!orderResponse.ok || !orderData.order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
-
-    const order = orderData.order;
-    const fulfillment = (order.fulfillments || [])[0];
-
-    if (!fulfillment) {
-      return NextResponse.json({ error: 'Order has no pickup fulfillment' }, { status: 400 });
-    }
-
-    const target = mapStatus(status);
-
-    // 2) Update the order with new fulfillment state and (when completed) set order.state to COMPLETED
-    const updateBody = {
-      idempotency_key: `update_${Date.now()}_${Math.random()}`,
-      order: {
-        version: order.version,
-        location_id: order.location_id,
-        state: target.order,
-        fulfillments: [
-          {
-            uid: fulfillment.uid,
-            type: fulfillment.type,
-            state: target.fulfillment
-          }
-        ]
-      }
+    const rawBody = (await request.json()) as {
+      status?: unknown;
+      notes?: unknown;
     };
 
-    const updateRes = await fetch(`https://connect.squareup.com/v2/orders/${orderId}`, {
-      method: 'PUT',
-      headers: getSquareHeaders(),
-      body: JSON.stringify(updateBody)
-    });
-
-    const updateData = await updateRes.json();
-
-    if (!updateRes.ok) {
-      console.log('❌ Failed to update order status:', updateData);
-      return NextResponse.json({
-        error: 'Failed to update pickup status',
-        details: updateData.errors || updateData || 'Unknown error'
-      }, { status: 400 });
+    if (!isAllowedStatus(rawBody.status)) {
+      return NextResponse.json(
+        { error: 'Invalid or missing status' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ success: true, order: updateData.order });
+    const status: AllowedStatus = rawBody.status;
+    const notes = typeof rawBody.notes === 'string' ? rawBody.notes : undefined;
+
+    // First get the current order
+    const orderResponse = await fetch(
+      `https://connect.squareup.com/v2/orders/${orderId}`,
+      {
+        method: 'GET',
+          headers: getSquareHeaders(false)
+      }
+    );
+
+    const orderData = (await orderResponse.json()) as OrderResponseFromSquare;
+
+    if (!orderResponse.ok || !orderData.order) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    const currentOrder = orderData.order;
+    const fulfillments = currentOrder.fulfillments ?? [];
+
+    if (fulfillments.length === 0) {
+      return NextResponse.json(
+        { error: 'Order has no fulfillments' },
+        { status: 400 }
+      );
+    }
+
+    const currentFulfillment = fulfillments[0];
+
+    if (!currentFulfillment.uid || !currentFulfillment.type) {
+      return NextResponse.json(
+        { error: 'Order fulfillment is missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    const pickupDetails = currentFulfillment.pickup_details ?? {};
+    const existingNote =
+      typeof pickupDetails.note === 'string' ? pickupDetails.note : '';
+
+    const updatedNote =
+      notes && notes.trim().length > 0
+        ? existingNote
+          ? `${existingNote} | Staff note: ${notes}`
+          : `Staff note: ${notes}`
+        : existingNote;
+
+    // Update the fulfillment status
+    const updateResponse = await fetch(
+      `https://connect.squareup.com/v2/orders/${orderId}`,
+      {
+        method: 'PUT',
+        headers: getSquareHeaders(),
+        body: JSON.stringify({
+          order: {
+            version: currentOrder.version,
+            fulfillments: [
+              {
+                uid: currentFulfillment.uid,
+                type: currentFulfillment.type,
+                state: status,
+                pickup_details: {
+                  ...pickupDetails,
+                  note: updatedNote
+                }
+              }
+            ]
+          }
+        })
+      }
+    );
+
+    const updateData = (await updateResponse.json()) as {
+      order?: unknown;
+      errors?: unknown;
+    };
+
+    if (updateResponse.ok && updateData.order) {
+      return NextResponse.json({
+        success: true,
+        order: updateData.order,
+        message:
+          status === 'COMPLETED'
+            ? 'Order marked as picked up'
+            : status === 'PREPARED'
+            ? 'Order marked as ready for pickup'
+            : 'Order marked as processed',
+        updated_status: status
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Failed to update pickup status',
+        details: updateData.errors || updateData || 'Unknown error'
+      },
+      { status: 400 }
+    );
   } catch (error) {
     console.error('Error updating pickup status:', error);
-    return NextResponse.json({ 
-      error: 'Failed to update pickup status',
-      details: String(error)
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to update pickup status',
+        details: String(error)
+      },
+      { status: 500 }
+    );
   }
 }
