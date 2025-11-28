@@ -16,12 +16,11 @@ const getSquareHeaders = (includeContentType = true) => {
   return headers;
 };
 
-// Create Payment Link for checkout (preferred method)
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { items, customerInfo, locationId } = body;
-    
+
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'No items in cart' }, { status: 400 });
     }
@@ -37,6 +36,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         order: {
           location_id: locationId || process.env.SQUARE_LOCATION_ID,
+          source: { name: process.env.SQUARE_ORDER_SOURCE_NAME || 'website' },
           line_items: items.map((item: CartItem) => ({
             name: item.book.name,
             quantity: (item.quantity || 1).toString(),
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
         idempotency_key: `payment_link_${Date.now()}_${Math.random()}`,
         order: {
           location_id: locationId || process.env.SQUARE_LOCATION_ID,
+          source: { name: process.env.SQUARE_ORDER_SOURCE_NAME || 'website' },
           line_items: items.map((item: CartItem) => ({
             name: item.book.name,
             quantity: (item.quantity || 1).toString(),
@@ -115,28 +116,15 @@ export async function POST(request: NextRequest) {
         },
         checkout_options: {
           ask_for_shipping_address: false,
-          redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${orderId}`,
-          accepted_payment_methods: {
-            apple_pay: true,
-            google_pay: true
-          }
-        },
-        payment_note: `Bookstore Order ${orderId} - BOPIS (Buy Online, Pickup In Store)`
+          redirect_url: body.redirectUrl || undefined
+        }
       })
     });
 
     const paymentLinkData = await paymentLinkResponse.json();
-    
+
     if (paymentLinkResponse.ok && paymentLinkData.payment_link) {
-      
-      // Note: Order created as PROPOSED, will be auto-updated to PREPARED by scheduled task
-      
-      return NextResponse.json({
-        success: true,
-        order_id: orderId,
-        payment_link_url: paymentLinkData.payment_link.url,
-        payment_link_id: paymentLinkData.payment_link.id
-      });
+      return NextResponse.json({ success: true, paymentLink: paymentLinkData.payment_link });
     } else {
       return NextResponse.json({
         error: 'Failed to create Payment Link',
