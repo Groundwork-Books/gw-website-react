@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Helper function for Square API headers
 const getSquareHeaders = (includeContentType = true) => {
@@ -7,11 +7,11 @@ const getSquareHeaders = (includeContentType = true) => {
     'Accept': 'application/json',
     'Square-Version': '2024-12-18'
   };
-  
+
   if (includeContentType) {
     headers['Content-Type'] = 'application/json';
   }
-  
+
   return headers;
 };
 
@@ -44,11 +44,12 @@ type OrderResponseFromSquare = {
 
 // Update order pickup status (processed / ready / picked up)
 export async function PUT(
-  request: Request,
-  { params }: { params: { orderId: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    // Match the pattern used in search-by-email route
+    const { orderId } = await params;
 
     const rawBody = (await request.json()) as {
       status?: unknown;
@@ -70,7 +71,7 @@ export async function PUT(
       `https://connect.squareup.com/v2/orders/${orderId}`,
       {
         method: 'GET',
-          headers: getSquareHeaders(false)
+        headers: getSquareHeaders(false)
       }
     );
 
