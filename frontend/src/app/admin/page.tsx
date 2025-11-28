@@ -350,37 +350,102 @@ export default function AdminPage() {
                             </div>
                           </div>
 
-                          <div className="mt-4 flex gap-2">
-                            {(fulfillment?.state === 'PROPOSED' || fulfillment?.state === 'PENDING') && (
-                              <button
-                                onClick={() => updateOrderStatus(order.id, 'PREPARED')}
-                                disabled={updatingOrderId === order.id}
-                                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
-                              >
-                                {updatingOrderId === order.id && (
-                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                )}
-                                Mark Ready for Pickup
-                              </button>
-                            )}
-                            {fulfillment?.state === 'PREPARED' && (
-                              <button
-                                onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                                disabled={updatingOrderId === order.id}
-                                className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
-                              >
-                                {updatingOrderId === order.id && (
-                                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                )}
-                                Mark as Picked Up
-                              </button>
-                            )}
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {/* Mark as Processed */}
+                            <button
+                              onClick={() => updateOrderStatus(order.id, 'PREPARED')}
+                              disabled={updatingOrderId === order.id}
+                              className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                            >
+                              {updatingOrderId === order.id && (
+                                <svg
+                                  className="animate-spin h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2
+                                      5.291A7.962 7.962 0 014 12H0c0 3.042 1.135
+                                      5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                              )}
+                              Mark as Processed
+                            </button>
+
+                            {/* Mark Ready for Pickup */}
+                            <button
+                              onClick={() => updateOrderStatus(order.id, 'PREPARED')}
+                              disabled={updatingOrderId === order.id}
+                              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                            >
+                              {updatingOrderId === order.id && (
+                                <svg
+                                  className="animate-spin h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2
+                                      5.291A7.962 7.962 0 014 12H0c0 3.042 1.135
+                                      5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                              )}
+                              Mark Ready for Pickup
+                            </button>
+
+                            {/* Mark as Picked Up */}
+                            <button
+                              onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
+                              disabled={updatingOrderId === order.id}
+                              className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                            >
+                              {updatingOrderId === order.id && (
+                                <svg
+                                  className="animate-spin h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2
+                                      5.291A7.962 7.962 0 014 12H0c0 3.042 1.135
+                                      5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                              )}
+                              Mark as Picked Up
+                            </button>
                           </div>
                         </div>
                       </div>
