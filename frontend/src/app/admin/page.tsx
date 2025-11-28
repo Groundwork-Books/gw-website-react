@@ -16,62 +16,151 @@ interface Order {
   line_items: Array<{
     name: string;
     quantity: string;
+    total_money: {
+      amount: number;
+      currency: string;
+    };
+    note?: string;
   }>;
   fulfillments?: Array<{
-    uid?: string;
-    type?: string;
     state?: string;
+    type?: string;
     pickup_details?: {
       recipient?: {
-        display_name: string;
-        email_address: string;
+        display_name?: string;
+        email_address?: string;
         phone_number?: string;
       };
+      schedule_type?: string;
+      pickup_at?: string;
       note?: string;
     };
   }>;
+  tenders?: Array<{
+    type: string;
+    card_details?: {
+      card?: {
+        brand?: string;
+        last_4?: string;
+      };
+    };
+    cash_details?: {
+      buyer_tendered_money?: {
+        amount: number;
+        currency: string;
+      };
+    };
+  }>;
+  source?: {
+    name?: string;
+  };
+  customer_id?: string;
 }
 
-interface OrderSearchResponse {
-  success?: boolean;
-  error?: string;
-  orders?: Order[];
+interface Customer {
+  id: string;
+  given_name?: string;
+  family_name?: string;
+  email_address?: string;
+  phone_number?: string;
 }
 
 export default function AdminPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [searchEmail, setSearchEmail] = useState('');
-  const [activeTab, setActiveTab] = useState<'recent' | 'search'>('recent');
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
+  const [activeTab, setActiveTab] = useState<'recent' | 'search'>('recent');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [customers, setCustomers] = useState<Record<string, Customer>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [searchEmail, setSearchEmail] = useState('');
+  const [searchOrders, setSearchOrders] = useState<Order[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+  // Fetch customers for better display
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/orders/admin/customers');
+      if (!response.ok) {
+        return;
+      }
+      const data = await response.json();
+      if (data.success && Array.isArray(data.customers)) {
+        const customerMap: Record<string, Customer> = {};
+        data.customers.forEach((customer: Customer) => {
+          customerMap[customer.id] = customer;
+        });
+        setCustomers(customerMap);
+      }
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+    }
+  }, []);
+
+  // Fetch recent orders
   const fetchRecentOrders = useCallback(async () => {
     setLoading(true);
-    setError('');
-    
+    setError(null);
+
     try {
-      const response = await fetch(`/api/orders/admin/recent-orders?limit=20`);
+      const response = await fetch('/api/orders/admin/recent-orders');
       const data = await response.json();
-      
+
       if (data.success) {
         setOrders(data.orders || []);
       } else {
-        setError(data.error || 'Failed to fetch orders');
+        setError(data.error || 'Failed to load orders');
       }
     } catch (err) {
       console.error('Error fetching recent orders:', err);
-      setError('Failed to fetch orders');
+      setError('An error occurred while fetching orders');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const updateOrderStatus = async (orderId: string, status: 'PREPARED' | 'COMPLETED' | 'RESERVED') => {
+  const searchOrdersByEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!searchEmail.trim()) {
+      setSearchError('Please enter an email address');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+
     try {
-      setUpdatingOrderId(orderId); // Show loading state for specific order
+      const encodedEmail = encodeURIComponent(searchEmail.trim());
+      const response = await fetch(`/api/orders/admin/search-by-email/${encodedEmail}`);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSearchOrders(data.orders || []);
+      } else {
+        setSearchError(data.error || 'Failed to search orders');
+      }
+    } catch (err) {
+      console.error('Error searching orders by email:', err);
+      setSearchError('An error occurred while searching orders');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Update order status (processed / ready / picked up)
+  const updateOrderStatus = async (
+    orderId: string,
+    status: 'PREPARED' | 'COMPLETED' | 'RESERVED'
+  ) => {
+    try {
+      setUpdatingOrderId(orderId);
       const response = await fetch(`/api/orders/admin/${orderId}/pickup-status`, {
         method: 'PUT',
         headers: {
@@ -79,17 +168,16 @@ export default function AdminPage() {
         },
         body: JSON.stringify({ status })
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
-        // Immediately update the local state to show the change
-        setOrders(prevOrders => 
+        setOrders(prevOrders =>
           prevOrders.map(order => {
             if (order.id === orderId) {
               return {
                 ...order,
-                fulfillments: order.fulfillments?.map(fulfillment => ({
+                fulfillments: (order.fulfillments || []).map(fulfillment => ({
                   ...fulfillment,
                   state: status
                 }))
@@ -98,7 +186,6 @@ export default function AdminPage() {
             return order;
           })
         );
-        
       } else {
         setError(data.error || 'Failed to update order status');
       }
@@ -106,12 +193,8 @@ export default function AdminPage() {
       console.error('Error updating order status:', err);
       setError('Failed to update order status');
     } finally {
-      setUpdatingOrderId(null); // Clear loading state
+      setUpdatingOrderId(null);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
   };
 
   const formatAmount = (amount: number) => {
@@ -124,8 +207,6 @@ export default function AdminPage() {
         return 'bg-green-100 text-green-800';
       case 'PREPARED':
         return 'bg-blue-100 text-blue-800';
-      case 'RESERVED':
-        return 'bg-yellow-100 text-yellow-800';
       case 'PROPOSED':
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
@@ -140,8 +221,6 @@ export default function AdminPage() {
         return 'Picked Up';
       case 'PREPARED':
         return 'Ready for Pickup';
-      case 'RESERVED':
-        return 'Processed';
       case 'PROPOSED':
       case 'PENDING':
         return 'Preparing Order';
@@ -154,412 +233,578 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
-        router.push('/login?message=' + encodeURIComponent('Please log in to access admin dashboard.'));
+        router.push(
+          '/login?message=' +
+            encodeURIComponent('Please log in to access admin dashboard.')
+        );
         return;
       }
       if (user.email !== 'groundworkbookscollective@gmail.com') {
-        router.push('/login?message=' + encodeURIComponent('Access denied. Admin login required.'));
+        router.push(
+          '/login?message=' +
+            encodeURIComponent('Access denied. Admin login required.')
+        );
         return;
       }
-      // User is authenticated as admin, fetch orders
       fetchRecentOrders();
+      fetchCustomers();
     }
-  }, [user, authLoading, router, fetchRecentOrders]);
+  }, [authLoading, user, router, fetchRecentOrders, fetchCustomers]);
 
-  const searchOrdersByEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchEmail.trim()) return;
-    
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await fetch(`/api/orders/admin/search-by-email/${encodeURIComponent(searchEmail)}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setOrders(data.orders || []);
-      } else {
-        setError(data.error || 'Failed to search orders');
-      }
-    } catch (err) {
-      console.error('Error searching orders:', err);
-      setError('Failed to search orders');
-    } finally {
-      setLoading(false);
+  const renderOrders = (ordersToRender: Order[], emptyMessage: string) => {
+    if (!ordersToRender.length) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          {emptyMessage}
+        </div>
+      );
     }
+
+    return (
+      <ul className="space-y-4">
+        {ordersToRender.map(order => {
+          const fulfillment = order.fulfillments?.[0];
+          const pickupDetails = fulfillment?.pickup_details;
+          const recipient = pickupDetails?.recipient;
+
+          const tender = order.tenders?.[0];
+          const isCardPayment = tender?.type === 'CARD';
+          const isCashPayment = tender?.type === 'CASH';
+          const isOnlineOrder =
+            order.source?.name &&
+            order.source.name.toLowerCase().includes('online');
+
+          const customer = order.customer_id ? customers[order.customer_id] : null;
+
+          return (
+            <li
+              key={order.id}
+              className="bg-white rounded-lg shadow p-4 border border-gray-100"
+            >
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-xs font-mono text-gray-400">
+                      Order ID: {order.id}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${getStatusColor(
+                        fulfillment?.state || order.state
+                      )}`}
+                    >
+                      {getStatusText(fulfillment?.state || order.state)}
+                    </span>
+                    {isOnlineOrder && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800">
+                        Online Order
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mb-2">
+                    <div className="text-sm text-gray-600">
+                      Placed on:{' '}
+                      {new Date(order.created_at).toLocaleString()}
+                    </div>
+                    <div className="text-sm font-semibold text-gray-800">
+                      Total:{' '}
+                      {formatAmount(order.total_money.amount)}{' '}
+                      {order.total_money.currency}
+                    </div>
+                  </div>
+
+                  {order.line_items?.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-sm font-semibold text-gray-700 mb-1">
+                        Items:
+                      </div>
+                      <ul className="text-sm text-gray-700 space-y-1">
+                        {order.line_items.map((item, index) => (
+                          <li
+                            key={index}
+                            className="flex justify-between"
+                          >
+                            <span>
+                              {item.quantity} × {item.name}
+                              {item.note && (
+                                <span className="ml-2 text-xs text-gray-500">
+                                  ({item.note})
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-medium">
+                              {formatAmount(item.total_money.amount)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-4">
+                  <div className="mb-3">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      Customer
+                    </div>
+                    {customer ? (
+                      <div className="text-sm text-gray-800">
+                        <div>
+                          {customer.given_name || customer.family_name
+                            ? `${customer.given_name || ''} ${
+                                customer.family_name || ''
+                              }`.trim()
+                            : 'Unknown Customer'}
+                        </div>
+                        {customer.email_address && (
+                          <div className="text-xs text-gray-500">
+                            {customer.email_address}
+                          </div>
+                        )}
+                        {customer.phone_number && (
+                          <div className="text-xs text-gray-500">
+                            {customer.phone_number}
+                          </div>
+                        )}
+                      </div>
+                    ) : recipient ? (
+                      <div className="text-sm text-gray-800">
+                        <div>
+                          {recipient.display_name || 'Unknown Customer'}
+                        </div>
+                        {recipient.email_address && (
+                          <div className="text-xs text-gray-500">
+                            {recipient.email_address}
+                          </div>
+                        )}
+                        {recipient.phone_number && (
+                          <div className="text-xs text-gray-500">
+                            {recipient.phone_number}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        No customer information
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      Fulfillment
+                    </div>
+                    {pickupDetails ? (
+                      <div className="text-sm text-gray-800 space-y-1">
+                        <div>
+                          <span className="font-medium">
+                            Type:
+                          </span>{' '}
+                          {fulfillment?.type || 'Pickup'}
+                        </div>
+                        {pickupDetails.schedule_type && (
+                          <div>
+                            <span className="font-medium">
+                              Schedule:
+                            </span>{' '}
+                            {pickupDetails.schedule_type}
+                          </div>
+                        )}
+                        {pickupDetails.pickup_at && (
+                          <div>
+                            <span className="font-medium">
+                              Pickup at:
+                            </span>{' '}
+                            {new Date(
+                              pickupDetails.pickup_at
+                            ).toLocaleString()}
+                          </div>
+                        )}
+                        {pickupDetails.note && (
+                          <div className="text-xs text-gray-500">
+                            {pickupDetails.note}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        No fulfillment details (likely in-person sale)
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      Payment
+                    </div>
+                    {isCardPayment ? (
+                      <div className="text-sm text-gray-800">
+                        Card ending in{' '}
+                        {tender!.card_details!.card!.last_4}{' '}
+                        ({tender!.card_details!.card!.brand})
+                      </div>
+                    ) : isCashPayment ? (
+                      <div className="text-sm text-gray-800">
+                        Cash payment of{' '}
+                        {formatAmount(
+                          tender!.cash_details!
+                            .buyer_tendered_money!.amount
+                        )}{' '}
+                        {
+                          tender!.cash_details!
+                            .buyer_tendered_money!.currency
+                        }
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Payment details unavailable
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-gray-400">
+                      Source: {order.source?.name || 'Unknown'}
+                    </div>
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="text-xs text-indigo-600 hover:text-indigo-800"
+                    >
+                      View Details
+                    </Link>
+                  </div>
+
+                  {/* Status action buttons */}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {/* Mark as Processed (RESERVED) */}
+                    {fulfillment &&
+                      (fulfillment.state === 'PROPOSED' ||
+                        fulfillment.state === 'PENDING') && (
+                        <button
+                          onClick={() =>
+                            updateOrderStatus(order.id, 'RESERVED')
+                          }
+                          disabled={updatingOrderId === order.id}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                        >
+                          {updatingOrderId === order.id && (
+                            <svg
+                              className="animate-spin h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                              ></path>
+                            </svg>
+                          )}
+                          Mark as Processed
+                        </button>
+                      )}
+
+                    {/* Mark Ready for Pickup (PREPARED) */}
+                    {fulfillment &&
+                      (fulfillment.state === 'PROPOSED' ||
+                        fulfillment.state === 'PENDING' ||
+                        fulfillment.state === 'RESERVED') && (
+                        <button
+                          onClick={() =>
+                            updateOrderStatus(order.id, 'PREPARED')
+                          }
+                          disabled={updatingOrderId === order.id}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                        >
+                          {updatingOrderId === order.id && (
+                            <svg
+                              className="animate-spin h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                              ></path>
+                            </svg>
+                          )}
+                          Mark Ready for Pickup
+                        </button>
+                      )}
+
+                    {/* Mark as Picked Up (COMPLETED) */}
+                    {fulfillment &&
+                      fulfillment.state === 'PREPARED' && (
+                        <button
+                          onClick={() =>
+                            updateOrderStatus(order.id, 'COMPLETED')
+                          }
+                          disabled={updatingOrderId === order.id}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
+                        >
+                          {updatingOrderId === order.id && (
+                            <svg
+                              className="animate-spin h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                              ></path>
+                            </svg>
+                          )}
+                          Mark as Picked Up
+                        </button>
+                      )}
+                  </div>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    );
   };
 
-  const handleTabChange = (tab: 'recent' | 'search') => {
-    setActiveTab(tab);
-    if (tab === 'recent') {
-      // Refresh recent orders when switching back to this tab
-      fetchRecentOrders();
-    } else {
-      // Clear previous search state
-      setSearchEmail('');
-      setOrders([]);
-      setError('');
+  const renderContent = () => {
+    // Show loading while checking auth
+    if (authLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-lg">Loading...</div>
+        </div>
+      );
     }
-  };
 
-  // Show loading while checking auth
-  if (authLoading) {
+    // This should not render if user is not admin (redirected in useEffect)
+    if (!user || user.email !== 'groundworkbookscollective@gmail.com') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-lg">Access denied.</div>
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  // This should not render if user is not admin (redirected in useEffect)
-  if (!user || user.email !== 'groundworkbookscollective@gmail.com') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Access denied.</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-1">
-              View and manage recent orders from the online store and in-person sales.
-            </p>
-          </div>
-          <div className="mt-3 sm:mt-0 flex gap-3">
-            <Link
-              href="/admin/cache-monitor"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Cache Monitor
-            </Link>
-            <span className="text-sm text-gray-600">Welcome, {user.email}</span>
-            <button
-              onClick={() => router.push('/')}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Back to Site
-            </button>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Admin Dashboard
+                </h1>
+              </div>
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/admin/cache-monitor"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Cache Monitor
+                </Link>
+                <span className="text-sm text-gray-600">
+                  Welcome, {user.email}
+                </span>
+                <button
+                  onClick={() => router.push('/')}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Back to Site
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div className="mb-4 rounded-md bg-red-50 p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.75a.75.75 0 00-1.5 0v4.5a.75.75 0 001.5 0v-4.5zm0 6.5a.75.75 0 10-1.5 0 .75.75 0 001.5 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
-              </div>
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 py-6 sm:px-0">
+            {/* Tabs */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('recent')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'recent'
+                      ? 'border-gw-green text-gw-green'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Recent Orders
+                </button>
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'search'
+                      ? 'border-gw-green text-gw-green'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Search by Email
+                </button>
+              </nav>
             </div>
-          </div>
-        )}
 
-        {/* Tabs and search */}
-        <div className="bg-white shadow rounded-lg mb-6">
-          <div className="border-b border-gray-200 px-4 py-3 sm:px-6 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => handleTabChange('recent')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md ${
-                  activeTab === 'recent'
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Recent orders
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange('search')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md ${
-                  activeTab === 'search'
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Search by email
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={fetchRecentOrders}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-            >
-              Refresh
-            </button>
-          </div>
+            {/* Recent Orders Tab */}
+            {activeTab === 'recent' && (
+              <div>
+                {error && (
+                  <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                    {error}
+                  </div>
+                )}
 
-          {activeTab === 'search' && (
-            <div className="px-4 py-3 sm:px-6 border-b border-gray-200">
-              <form
-                onSubmit={searchOrdersByEmail}
-                className="flex flex-col sm:flex-row gap-3 sm:items-center"
-              >
-                <div className="flex-1">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Customer email
-                  </label>
+                {loading && (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center gap-2 text-gray-600">
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        ></path>
+                      </svg>
+                      <span>Loading recent orders...</span>
+                    </div>
+                  </div>
+                )}
+
+                {!loading &&
+                  renderOrders(
+                    orders,
+                    'No recent orders found. Try refreshing later.'
+                  )}
+              </div>
+            )}
+
+            {/* Search by Email Tab */}
+            {activeTab === 'search' && (
+              <div>
+                <form
+                  onSubmit={searchOrdersByEmail}
+                  className="flex flex-col sm:flex-row gap-3 mb-4"
+                >
                   <input
-                    id="email"
                     type="email"
-                    required
                     value={searchEmail}
-                    onChange={(e) => setSearchEmail(e.target.value)}
-                    placeholder="customer@example.com"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+                    onChange={e => setSearchEmail(e.target.value)}
+                    placeholder="Enter customer email"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
-                </div>
-                <div className="mt-2 sm:mt-6 flex gap-2">
                   <button
                     type="submit"
-                    className="inline-flex items-center rounded-md border border-transparent bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800"
+                    disabled={searchLoading}
+                    className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gw-green hover:bg-gw-green-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gw-green disabled:opacity-50"
                   >
-                    Search orders
+                    {searchLoading ? (
+                      <>
+                        <svg
+                          className="animate-spin h-4 w-4 mr-2"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          ></path>
+                        </svg>
+                        Searching...
+                      </>
+                    ) : (
+                      'Search'
+                    )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchEmail('');
-                      fetchRecentOrders();
-                      setActiveTab('recent');
-                    }}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+                </form>
 
-          <div className="px-4 py-4 sm:px-6">
-            {loading ? (
-              <div className="py-10 flex justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <svg
-                    className="animate-spin h-6 w-6 text-gray-600"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <div className="text-gray-600 text-sm">Loading orders...</div>
-                </div>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="py-10 text-center text-gray-500 text-sm">No orders found</div>
-            ) : (
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
-                  {orders.map((order) => {
-                    const fulfillment = order.fulfillments?.[0];
-                    const pickupDetails = fulfillment?.pickup_details;
-                    const itemCount = order.line_items.reduce(
-                      (total, item) => total + parseInt(item.quantity),
-                      0
-                    );
+                {searchError && (
+                  <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                    {searchError}
+                  </div>
+                )}
 
-                    return (
-                      <li key={order.id}>
-                        <div className="px-4 py-4 sm:px-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-lg font-semibold text-gray-900">
-                                    Order #{order.id.slice(-8)}
-                                  </p>
-                                  <p className="text-sm text-gray-500">
-                                    {formatDate(order.created_at)} • {itemCount}{' '}
-                                    {itemCount === 1 ? 'item' : 'items'}
-                                  </p>
-                                  {pickupDetails?.recipient && (
-                                    <p className="text-sm text-gray-600 mt-1">
-                                      📧 {pickupDetails.recipient.display_name} (
-                                      {pickupDetails.recipient.email_address})
-                                      {pickupDetails.recipient.phone_number && (
-                                        <span>
-                                          {' '}
-                                          • 📱 {pickupDetails.recipient.phone_number}
-                                        </span>
-                                      )}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                      fulfillment?.state || 'PROPOSED'
-                                    )}`}
-                                  >
-                                    {getStatusText(fulfillment?.state || 'PROPOSED')}
-                                  </span>
-                                  <p className="mt-2 text-lg font-semibold text-gray-900">
-                                    {formatAmount(order.total_money.amount)}
-                                  </p>
-                                </div>
-                              </div>
+                {searchLoading && (
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center gap-2 text-gray-600">
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                        ></path>
+                      </svg>
+                      <span>Searching orders...</span>
+                    </div>
+                  </div>
+                )}
 
-                              <div className="mt-3">
-                                <div className="text-sm text-gray-600">
-                                  {order.line_items.slice(0, 3).map((item, index) => (
-                                    <div key={index}>
-                                      {item.name} × {item.quantity}
-                                    </div>
-                                  ))}
-                                  {order.line_items.length > 3 && (
-                                    <div className="text-gray-500">
-                                      +{order.line_items.length - 3} more items
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="mt-4 flex gap-2">
-                                {(fulfillment?.state === 'PROPOSED' ||
-                                  fulfillment?.state === 'PENDING') && (
-                                  <button
-                                    onClick={() =>
-                                      updateOrderStatus(order.id, 'RESERVED')
-                                    }
-                                    disabled={updatingOrderId === order.id}
-                                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
-                                  >
-                                    {updatingOrderId === order.id && (
-                                      <svg
-                                        className="animate-spin h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <circle
-                                          className="opacity-25"
-                                          cx="12"
-                                          cy="12"
-                                          r="10"
-                                          stroke="currentColor"
-                                          strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                          className="opacity-75"
-                                          fill="currentColor"
-                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                      </svg>
-                                    )}
-                                    Mark as Processed
-                                  </button>
-                                )}
-
-                                {(fulfillment?.state === 'PROPOSED' ||
-                                  fulfillment?.state === 'PENDING' ||
-                                  fulfillment?.state === 'RESERVED') && (
-                                  <button
-                                    onClick={() =>
-                                      updateOrderStatus(order.id, 'PREPARED')
-                                    }
-                                    disabled={updatingOrderId === order.id}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
-                                  >
-                                    {updatingOrderId === order.id && (
-                                      <svg
-                                        className="animate-spin h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <circle
-                                          className="opacity-25"
-                                          cx="12"
-                                          cy="12"
-                                          r="10"
-                                          stroke="currentColor"
-                                          strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                          className="opacity-75"
-                                          fill="currentColor"
-                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                      </svg>
-                                    )}
-                                    Mark Ready for Pickup
-                                  </button>
-                                )}
-
-                                {fulfillment?.state === 'PREPARED' && (
-                                  <button
-                                    onClick={() =>
-                                      updateOrderStatus(order.id, 'COMPLETED')
-                                    }
-                                    disabled={updatingOrderId === order.id}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-2"
-                                  >
-                                    {updatingOrderId === order.id && (
-                                      <svg
-                                        className="animate-spin h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <circle
-                                          className="opacity-25"
-                                          cx="12"
-                                          cy="12"
-                                          r="10"
-                                          stroke="currentColor"
-                                          strokeWidth="4"
-                                        ></circle>
-                                        <path
-                                          className="opacity-75"
-                                          fill="currentColor"
-                                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        ></path>
-                                      </svg>
-                                    )}
-                                    Mark as Picked Up
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {!searchLoading &&
+                  renderOrders(
+                    searchOrders,
+                    'No orders found for this email address.'
+                  )}
               </div>
             )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  return renderContent();
 }
